@@ -332,7 +332,7 @@
                             if (!val) valid = false;
                         }
                     }
-                    if (val.length == 0) valid = false;
+                    if (val?.length == 0) valid = false;
                     if (!reactedMessages[val]) reactedMessages[val] = [];
                     if (valid) if (reactedMessages[val].includes(msg.id)) {
                         const i = reactedMessages[val].indexOf(msg.id);
@@ -640,7 +640,7 @@
                                     if (!val) valid = false;
                                 }
                             }
-                            if (val.length == 0) valid = false;
+                            if (val?.length == 0) valid = false;
                             if (!reactedMessages[val]) reactedMessages[val] = [];
                             if (valid) if (reactedMessages[val].includes(msg.id)) {
                                 const i = reactedMessages[val].indexOf(msg.id);
@@ -721,7 +721,9 @@
                             div.classList.add("messageReactionEnabled");
                         }
                         emojis.style.margin = "0.5em 0";
-                        div.classList.add(key, "messageReaction");
+                        try { div.classList.add(key, "messageReaction"); } catch {
+                            continue;
+                        }
                         div.textContent = `${key} ${value.length}`;
                         emojis.append(div);
                         div.onclick = () => { 
