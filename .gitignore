@@ -1,5 +1,4 @@
 node_modules
 forge.config.js
 .DS_STORE
-package.json
 package-lock.json
