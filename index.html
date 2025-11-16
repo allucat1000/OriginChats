@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OriginChats</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.4/purify.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/vs2015.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <meta http-equiv="Content-Security-Policy"
+        content="
+        default-src 'self';
+        script-src 'self' https://cdnjs.cloudflare.com data: blob: 'unsafe-inline';
+        style-src 'self' 'unsafe-inline' data: https://cdnjs.cloudflare.com;
+        img-src 'self' data: blob: https:;
+        font-src 'self' https://cdnjs.cloudflare.com data: blob:;
+        connect-src 'self' https: http: wss: ws:;
+        media-src 'self' data: blob: https:;
+        frame-src 'self' data: blob:;
+        worker-src 'self' blob:;
+        object-src 'none';
+    ">
+</head>
+<body>
+    <div id="topbar">
+        <p id="title">Originchats</p>
+        <div id="winControls">
+            <button id="winClose"></button>
+        </div>
+    </div>
+    <div id="main">
+        <div id="channelSidebar"></div>
+        <div id="chatArea">
+            <div id="messages"></div>
+            <textarea placeholder="Open a channel to send messages" disabled="true" id="chatInput"></textarea>
+        </div>
+    </div>
+    <script src="main.js"></script>
+</body>
+</html>
