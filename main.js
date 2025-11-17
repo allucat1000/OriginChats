@@ -238,7 +238,7 @@
         openServer.placeholder = "Open another server";
         openServer.addEventListener("keydown", (e) => {
             if (e.key == "Enter") {
-                if (openServer.input) {
+                if (openServer.value) {
                     localStorage.setItem("openServer", input.value);
                     window.location.reload();
                 }
