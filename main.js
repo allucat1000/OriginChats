@@ -503,7 +503,7 @@
 
     async function editMessage(data) {
         if (data.channel !== currentChannel) return;
-        const el = messageStore[data.id];
+        const el = messageStore[data.id].el;
         if (!el) throw new Error(`Unable to edit message with ID '${data.id}'`);
         const text = el.querySelector(".messageContent");
         if (text) text.innerHTML = parseMarkdown(data.content);
