@@ -12,9 +12,7 @@
     mainDiv.style.display = "none";
 
     let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions;
-    let pings = {};
-    let reactedMessages = {};
-    const messageStore = {};
+    let pings, reactedMessages, messageStore = {};
 
     try {
         const script = `
@@ -347,6 +345,7 @@
                 }
             })
             hoverMenu.prepend(input);
+            input.focus();
         }
         hoverMenu.append(reactMessage, deleteMessage);
         
@@ -397,13 +396,20 @@
         } catch (error) {
             console.error("Failed to add attachment!", error);
         }
+        let count = Number(
+            [...messageArea.children].reverse()[0].id.split("-")[1]
+        );
+
+        div.id = `message-${++count}`;
+        split.id = `messageSplit-${count}`;
         if (lastUser == msg.user) div.append(hoverMenu, text, embeds, emojis); else { messageArea.append(split); div.append(hoverMenu, userDiv, text, embeds, emojis); }
         lastUser = msg.user;
         messageArea.append(div);
-        messageStore[msg.id] = div;
+        messageStore[msg.id] = { el: div, data: msg };
+        messageStore["count-" + count] = { el: div, data: msg };
         if (await checkPing(msg)) div.classList.add("pingedMessage");
         setTimeout(() => {
-            messageArea.scrollTop = messageArea.scrollHeight + 100;
+                messageArea.scrollTop = messageArea.scrollHeight + 100;
                 text.querySelectorAll('pre code').forEach((block) => {
                 hljs.highlightElement(block);
             });
@@ -412,7 +418,7 @@
 
     async function toggleReact(data, add) {
         if (data.channel !== currentChannel) return;
-        const el = messageStore[data.id];
+        const el = messageStore[data.id].el;
         if (!el) throw new Error(`Unable to add reaction to message with ID '${data.id}'`);
         const emojiList = el.querySelector(".messageEmojis");
         if (emojiList) {
@@ -424,17 +430,18 @@
                 } else {
                     const count = Number(emoji.textContent.split(" ")[1].trim());
                     emoji.textContent = `${data.emoji} ${count - 1}`;
-                    if (count == 1) { emoji.remove(); emojiList.style.margin = "0"; }
+                    if (count == 1) { emoji.remove(); if (emojiList.children.length == 0) emojiList.style.margin = "0"; }
                 }
             } else {
                 if (add) {
                     const div = document.createElement("div");
                     emojiList.style.margin = "0.5em 0";
-                    div.classList.add(data.emoji, "messageReaction", "messageReactionEnabled");
+                    if (data.from == userData.username) div.classList.add("messageReactionEnabled");
+                    div.classList.add(data.emoji, "messageReaction");
                     div.textContent = `${data.emoji} 1`;
                     emojiList.append(div);
                     div.onclick = () => { 
-                        if (!reactedMessages[data.emoji]) reactedMessages[emoji] = [];
+                        if (!reactedMessages[data.emoji]) reactedMessages[data.emoji] = [];
                         if (reactedMessages[data.emoji].includes(data.id)) {
                             const i = reactedMessages[data.emoji].indexOf(data.id);
                             if (i !== -1) reactedMessages[data.emoji].splice(i, 1);
@@ -456,10 +463,40 @@
 
     async function deleteMessage(data) {
         if (data.channel !== currentChannel) return;
-        const el = messageStore[data.id];
+        const el = messageStore[data.id].el;
+        const delMsg = messageStore[data.id].data;
         if (!el) throw new Error(`Unable to delete message with ID '${data.id}'`);
+        const top = el.querySelector(".userDiv");
+        if (top) {
+            const count = Number(el.id.split("-")[1]) + 1
+            const lower = messageArea.querySelector(`#message-${count}`);
+            if (lower) {
+                const msg = messageStore[`count-${count}`];
+                if (msg.data.user == delMsg.user) {
+                    const split = document.createElement("div");
+                    split.classList.add("messageSplit");
+                    split.id = `messageSplit-${count}`;
+                    const userDiv = document.createElement("div");
+                    const username = document.createElement("p");
+                    const userPfp = document.createElement("img");
+                    userDiv.classList.add("userDiv");
+                    username.classList.add("username");
+                    userPfp.classList.add("userPfp");
+                    username.textContent = msg.data.user;
+                    userPfp.src = await getPfp(msg.user);
+                    userPfp.onclick = () => previewProfile(msg.user);
+                    userDiv.append(userPfp, username);
+                    lower.insertBefore(userDiv, lower.children[1]);
+                    messageArea.insertBefore(split, lower);
+                }
+            }
+        }
         delete messageStore[data.id];
+        messageArea.querySelector(`#messageSplit-${el.id.split("-")[1]}`)?.remove();
         el.remove();
+        const msgs = [...messageArea.children].reverse();
+        const newest = messageStore["count-" + Number(msgs[0].id.split("-")[1])];
+        lastUser = newest.data.user;
     }
 
     async function editMessage(data) {
@@ -512,10 +549,10 @@
                     newMsg({ channel: data.channel, ...data.message });
                     break;
                 case "message_react_add":
-                    toggleReact({ id: data.id, channel: data.channel, emoji: data.emoji }, true);
+                    toggleReact({ from: data.from, id: data.id, channel: data.channel, emoji: data.emoji }, true);
                     break;
                 case "message_react_remove":
-                    toggleReact({ id: data.id, channel: data.channel, emoji: data.emoji }, false);
+                    toggleReact({ from: data.from, id: data.id, channel: data.channel, emoji: data.emoji }, false);
                     break;
                 case "user_disconnect":
                     break;
@@ -582,6 +619,7 @@
         mainDiv.style.display = "block";
 
         async function openChannel(name, perms) {
+            messageStore = {};
             const channelDiv = channelSidebar.querySelector("#channel-" + name);
             if (channelDiv) channelDiv.textContent = "#" + name;
             currentChannel = name;
@@ -616,7 +654,7 @@
                 deleteMessage.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2-icon lucide-trash-2"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
                 deleteMessage.classList.add("messageControlMenuButton");
                 deleteMessage.classList.add("messageDeleteButton");
-                deleteMessage.style.display = checkPermissions("delete") ? "block" : "none";
+                if (msg.user !== userData.username) deleteMessage.style.display = checkPermissions("delete") ? "block" : "none";
                 deleteMessage.onclick = () => ws.send(`{"cmd":"message_delete", "channel":"${currentChannel}", "id":"${msg.id}"}`);
                 const reactMessage = document.createElement("button");
                 reactMessage.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-smile-plus-icon lucide-smile-plus"><path d="M22 11v1a10 10 0 1 1-9-10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/><path d="M16 5h6"/><path d="M19 2v6"/></svg>`;
@@ -655,6 +693,7 @@
                         }
                     })
                     hoverMenu.prepend(input);
+                    input.focus();
                 }
                 hoverMenu.append(reactMessage, deleteMessage);
 
@@ -666,10 +705,10 @@
                 userPfp.classList.add("userPfp");
                 text.classList.add("messageContent");
                 username.textContent = msg.user;
-                if (await checkPing(msg)) div.classList.add("pingedMessage");
                 userPfp.src = await getPfp(msg.user);
                 userPfp.onclick = () => previewProfile(msg.user);
                 userDiv.append(userPfp, username);
+                if (await checkPing(msg)) div.classList.add("pingedMessage");
                 const split = document.createElement("div");
                 split.classList.add("messageSplit");
                 const embeds = document.createElement("div");
@@ -741,10 +780,14 @@
                         }
                     }
                 }
+                const count = messageList.length - 1 - i;
+                div.id = `message-${count}`;
+                split.id = `messageSplit-${count}`;
                 if (messageList[i + 1]?.user == msg.user) div.append(hoverMenu, text, embeds, emojis); else { messageSplit = true; div.append(hoverMenu, userDiv, text, embeds, emojis); }
                 messageArea.prepend(div);
                 if (messageSplit) messageArea.prepend(split);
-                messageStore[msg.id] = div;
+                messageStore[msg.id] = { el: div, data: msg };
+                messageStore["count-" + count] = { el: div, data: msg };
                 setTimeout(() => {
                     text.querySelectorAll('pre code').forEach((block) => {
                         hljs.highlightElement(block);
