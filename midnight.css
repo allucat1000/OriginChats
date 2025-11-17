@@ -1,6 +1,7 @@
 body {
     color: white;
     font-family: sans-serif;
+    background-color: rgb(0, 0, 0);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -66,6 +67,7 @@ body {
     top: 0;
     margin: 0;
     padding: 0.5em;
+    background-color: rgb(14, 14, 14);
 }
 
 #chatArea {
@@ -76,7 +78,7 @@ body {
     top: 0;
     border-width: thin;
     border-left-style: solid;
-    border-color: rgb(120, 120, 120, 0.5);
+    border-color: rgba(120, 120, 120, 0.5);
 }
 
 #chatInput {
@@ -86,10 +88,10 @@ body {
     width: calc(100% - 3.33em);
     padding: 1em;
     right: 0.5em;
-    background-color: rgb(65, 65, 65, 0.3);
+    background-color: rgba(55, 55, 55, 0.3);
     border-style: solid;
     border-width: thin;
-    border-color: rgb(120, 120, 120, 0.5);
+    border-color: rgba(120, 120, 120, 0.5);
     outline: none;
     max-height: 20em;
     height: 15px;
@@ -101,13 +103,11 @@ body {
 
 .channel {
     width: calc(100% - 1em);
-    background-color: rgb(75, 75, 75, 0.4);
+    background-color: transparent;
     padding: 0.5em;
-    border-radius: 0.5em;
-    border-style: solid;
     border-width: thin;
-    border-color: rgb(120, 120, 120, 0.5);
-    margin-bottom: 0.5em;
+    border-color: rgba(120, 120, 120, 0.5);
+    margin-bottom: 0.25em;
     cursor: pointer;
 }
 
@@ -115,7 +115,7 @@ body {
     border-bottom-style: solid;
     margin: 1.33em auto;
     width: calc(100% - 2em);
-    border-color: rgb(120, 120, 120, 0.5);
+    border-color: rgba(120, 120, 120, 0.3);
 }
 
 .userPfp {
@@ -126,9 +126,9 @@ body {
 
 .userDiv {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 0.66em;
-    margin-bottom: 0;
+    margin-bottom: 0.5em;
     margin-top: 0.25em;
 }
 
@@ -142,7 +142,7 @@ body {
 }
 
 .pingedMessage {
-    background-color: rgb(231 231 12 / 3%) !important;
+    background-color: rgb(231 231 12 / 5%) !important;
     border-radius: 0;
     padding: 0.5em 1em;
     border-left-style: solid;
@@ -171,7 +171,7 @@ body {
 .profilePreview {
     position: absolute;
     z-index: 99;
-    background-color: rgb(20, 20, 20, 0.95);
+    background-color: rgba(20, 20, 20, 0.95);
     left: 50%;
     transform: translate(-50%, -50%);
     top: 50%;
@@ -202,7 +202,7 @@ body {
 
 .profileBg {
     z-index: 99;
-    background-color: rgb(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.5);
     width: 100%;
     height: 100%;
     position: absolute;
@@ -275,12 +275,12 @@ pre {
 .messageControlMenu {
     position: absolute;
     right: 0;
-    background-color: rgb(60, 60, 60, 0.5);
+    background-color: rgb(30, 30, 30);
     top: -0.5em;
     border-radius: 0.5em;
     border-style: solid;
     border-width: thin;
-    border-color: rgb(120, 120, 120, 0.5);
+    border-color: rgba(70, 70, 70, 0.5);
     display: flex;
     flex-direction: row;
     flex-wrap: nowrap;
@@ -302,7 +302,7 @@ pre {
 }
 
 .messageHover {
-    background-color: rgb(120, 120, 120, 0.2);
+    background-color: rgba(90, 90, 90, 0.2);
 }
 
 .messageReactionAddInput {
@@ -350,10 +350,10 @@ pre {
     padding: 1em;
     width: 50%;
     border-radius: 0.5em;
-    background-color: rgb(40, 40, 40, 0.5);
+    background-color: rgba(40, 40, 40, 0.5);
     border-style: solid;
     border-width: thin;
-    border-color: rgb(120, 120, 120, 0.5);
+    border-color: rgba(120, 120, 120, 0.5);
     outline: none;
 }
 
@@ -370,7 +370,7 @@ pre {
     margin: 0;
     padding: 0;
     z-index: 999;
-    background-color: rgb(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.5);
 }
 
 .serverNavigateMenuInput {
@@ -381,7 +381,7 @@ pre {
     padding: 1.5em;
     width: 50%;
     border-radius: 1em;
-    background-color: rgb(70, 70, 70, 0.5);
+    background-color: rgba(70, 70, 70, 0.5);
     border-style: solid;
     border-width: thin;
     border-color: rgba(120, 120, 120, 0.5);

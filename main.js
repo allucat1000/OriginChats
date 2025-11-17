@@ -377,6 +377,7 @@
         text.classList.add("messageContent");
         username.textContent = msg.user;
         userPfp.src = await getPfp(msg.user);
+        userPfp.onclick = () => previewProfile(msg.user);
         userDiv.append(userPfp, username);
         const split = document.createElement("div");
         split.classList.add("messageSplit");
@@ -436,13 +437,19 @@
         }, 20);
     }
 
+    function encodeEmoji(str) {
+        return "u" + Array.from(str)
+            .map(c => c.codePointAt(0).toString(16))
+            .join("-");
+    }
+
     async function toggleReact(data, add) {
         if (data.channel !== currentChannel) return;
         const el = messageStore[data.id].el;
         if (!el) throw new Error(`Unable to add reaction to message with ID '${data.id}'`);
         const emojiList = el.querySelector(".messageEmojis");
         if (emojiList) {
-            const emoji = emojiList.querySelector(`.${data.emoji}`);
+            const emoji = emojiList.querySelector(`.${encodeEmoji(data.emoji)}`);
             if (emoji) {
                 if (add) {
                     const count = Number(emoji.textContent.split(" ")[1].trim());
@@ -450,14 +457,14 @@
                 } else {
                     const count = Number(emoji.textContent.split(" ")[1].trim());
                     emoji.textContent = `${data.emoji} ${count - 1}`;
-                    if (count == 1) { emoji.remove(); if (emojiList.children.length == 0) emojiList.style.margin = "0"; }
+                    if (count == 1) { emoji.remove(); if (emojiList.children.length == 0) emojiList.style.marginTop = "0"; }
                 }
             } else {
                 if (add) {
                     const div = document.createElement("div");
-                    emojiList.style.margin = "0.5em 0";
+                    emojiList.style.marginTop = "0.5em";
                     if (data.from == userData.username) div.classList.add("messageReactionEnabled");
-                    div.classList.add(data.emoji, "messageReaction");
+                    div.classList.add(encodeEmoji(data.emoji), "messageReaction");
                     div.textContent = `${data.emoji} 1`;
                     emojiList.append(div);
                     div.onclick = () => { 
@@ -762,7 +769,7 @@
                 userPfp.src = await getPfp(msg.user);
                 userPfp.onclick = () => previewProfile(msg.user);
                 userDiv.append(userPfp, username);
-                if (await checkPing(msg)) div.classList.add("pingedMessage");
+                if (await checkPing({channel: name, ...msg})) div.classList.add("pingedMessage");
                 const split = document.createElement("div");
                 split.classList.add("messageSplit");
                 const embeds = document.createElement("div");
@@ -808,12 +815,13 @@
                         const key = keys[i];
                         const value = msg.reactions[key];
                         const div = document.createElement("div");
+                        div.classList.add(encodeEmoji(key))
                         if (value.includes(userData.username)) {
                             if (!reactedMessages[key]) reactedMessages[key] = [];
                             reactedMessages[key].push(msg.id);
                             div.classList.add("messageReactionEnabled");
                         }
-                        emojis.style.margin = "0.5em 0";
+                        emojis.style.marginTop = "0.5em";
                         try { div.classList.add(key, "messageReaction"); } catch {
                             continue;
                         }
@@ -856,7 +864,7 @@
 
         for (const channel of channels) {
             const div = document.createElement("div");
-            if (channel.type === "separator") { div.classList.add("channelSeparator"); div.style.margin = `${channel.size / 10} em auto`} else { div.classList.add("channel"); div.textContent = "#" + channel.name; div.onclick = () => openChannel(channel.name, channel.permissions); }
+            if (channel.type === "separator") { div.classList.add("channelSeparator"); div.style.margin = `${channel.size / 15}em auto`} else { div.classList.add("channel"); div.textContent = "#" + channel.name; div.onclick = () => openChannel(channel.name, channel.permissions); }
             div.id = "channel-" + channel.name;
             channelSidebar.append(div);
         }
