@@ -12,7 +12,9 @@
     mainDiv.style.display = "none";
 
     let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions;
-    let pings, reactedMessages, messageStore = {};
+    let pings = {};
+    let reactedMessages = {};
+    let messageStore = {};
 
     try {
         const script = `
@@ -483,8 +485,8 @@
                     username.classList.add("username");
                     userPfp.classList.add("userPfp");
                     username.textContent = msg.data.user;
-                    userPfp.src = await getPfp(msg.user);
-                    userPfp.onclick = () => previewProfile(msg.user);
+                    userPfp.src = await getPfp(msg.data.user);
+                    userPfp.onclick = () => previewProfile(msg.data.user);
                     userDiv.append(userPfp, username);
                     lower.insertBefore(userDiv, lower.children[1]);
                     messageArea.insertBefore(split, lower);
