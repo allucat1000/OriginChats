@@ -239,7 +239,7 @@
         openServer.addEventListener("keydown", (e) => {
             if (e.key == "Enter") {
                 if (openServer.value) {
-                    localStorage.setItem("openServer", input.value);
+                    localStorage.setItem("openServer", openServer.value);
                     window.location.reload();
                 }
             }
