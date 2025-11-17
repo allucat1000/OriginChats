@@ -214,7 +214,14 @@
     loadCss();
 
     async function connect(url) {
-        ws = new WebSocket(url);
+        try {
+            ws = new WebSocket(url);
+        } catch {
+            console.error("Unable to connect to server");
+            localStorage.setItem("openServer", "wss://chats.mistium.com");
+            setTimeout(() => window.location.reload(), 5000);
+            return;
+        }
         ws.onclose = () => disconnect();
         ws.onopen = () => initFuncs();
         return;
@@ -226,12 +233,23 @@
         mainDiv.style.display = "block";
         const error = document.createElement("h2");
         const errorIcon = document.createElement("div");
+        const openServer = document.createElement("input");
+        openServer.classList.add("connectErrorNewServer");
+        openServer.placeholder = "Open another server";
+        openServer.addEventListener("keydown", (e) => {
+            if (e.key == "Enter") {
+                if (openServer.input) {
+                    localStorage.setItem("openServer", input.value);
+                    window.location.reload();
+                }
+            }
+        })
         errorIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-x-icon lucide-circle-x"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`;
         errorIcon.classList.add("connectErrorIcon")
-        error.textContent = "Unable to connect to server. Retrying in 5 seconds...";
+        error.textContent = "Unable to connect to server. Retrying in 10 seconds...";
         error.classList.add("connectError");
-        mainDiv.append(error, errorIcon);
-        setTimeout(() => window.location.reload(), 5000);
+        mainDiv.append(error, errorIcon, openServer);
+        setTimeout(() => window.location.reload(), 10000);
     }
 
     const messageArea = document.getElementById("messages");
@@ -610,6 +628,28 @@
         return url;
     }
 
+    let serverMenuOpen = false;
+
+    async function openServerMenu() {
+        if (serverMenuOpen == true) return;
+        serverMenuOpen = true;
+        const overlay = document.createElement("div");
+        overlay.classList.add("serverNavigateMenuBackground");
+        const input = document.createElement("input");
+        input.classList.add("serverNavigateMenuInput");
+        input.placeholder = "Enter a server URL";
+        input.addEventListener("keydown", (e) => {
+            if (e.key == "Enter") {
+                if (input.value) {
+                    localStorage.setItem("openServer", input.value);
+                    window.location.reload();
+                }
+            }
+        })
+        overlay.append(input);
+        mainDiv.append(overlay);
+    }
+
 
     async function initUI() {
         const chatInput = document.getElementById("chatInput");
@@ -619,6 +659,18 @@
             await new Promise((r) => setTimeout(r, 50));
         }
         mainDiv.style.display = "block";
+
+        window.addEventListener("keydown", (e) => {
+            if (e.key == "k" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                openServerMenu();
+            } else if (e.key == "Escape") {
+                if (serverMenuOpen) {
+                    const overlay = document.querySelector(".serverNavigateMenuBackground");
+                    if (overlay) { overlay.remove(); serverMenuOpen = false; }
+                }
+            }
+        })
 
         async function openChannel(name, perms) {
             messageStore = {};
@@ -847,7 +899,6 @@
         });
 
     }
-    url = "https://chats.mistium.com/";
+    url = localStorage.getItem("openServer") ?? "wss://chats.mistium.com/";
     await connect(url);
-
 })()
