@@ -455,7 +455,7 @@
                                 imgEl = document.createElement("img");
                             }
                             imgEl.classList.add("messageImageEmbed");
-                            imgEl.src = getImage(url);
+                            imgEl.src = await getImage(url);
                             embeds.append(imgEl);
                         }
                         continue;
