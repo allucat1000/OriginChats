@@ -11,7 +11,7 @@
     const mainDiv = document.getElementById("main");
     mainDiv.style.display = "none";
 
-    let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions;
+    let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList;
     let pings = {};
     let reactedMessages = {};
     let messageStore = {};
@@ -48,6 +48,18 @@
         document.head.append(scriptEl);
     } catch (error) {
         console.error("Failed to load emoji shortcodes!", error.message)
+    }
+    
+    let imageCache = {};
+
+    async function getImage(url) {
+        let d = imageCache[url]
+        if (d) return d;
+        const res = await fetch(url);
+        
+        d = URL.createObjectURL(await res.blob());
+        imageCache[url] = d;
+        return d;
     }
 
     async function previewProfile(name) {
@@ -306,7 +318,7 @@
         return false;
     }
 
-    async function newMsg(msg) {
+    async function newMsg(msg, old = false, i = 0) {
         if (msg.channel !== currentChannel) if (msg.channel) { await checkPing(msg); return; };
         if (msg.type !== "message") return
         const div = document.createElement("div");
@@ -382,7 +394,7 @@
         const split = document.createElement("div");
         split.classList.add("messageSplit");
         const embeds = document.createElement("div");
-        const urlRegex = /(?<!<)https?:\/\/[^\s>]+(?!>)/g;
+        const urlRegex = /(?<!<)https?:\/\/[^\s<>]+(?!>)/;
         const match = msg.content.match(urlRegex);
         embeds.classList.add("messageEmbedBox");
         let imgEl;
@@ -392,8 +404,44 @@
                 if (!urls) return
                 for (const u of urls) {
                     let url = u;
-                    const extRegex = /\.(png|jpe?g|gif|bmp|webp|tiff)$/i;
-                    const extMatch = url.match(extRegex);
+
+                    // YT Videos
+                    const fpU = url?.replace("https", "http")?.replace("www.", "");
+                    const ytMatch = fpU?.startsWith("http://youtube.com/watch?v=") || fpU?.startsWith("http://youtube.com/shorts/") || fpU?.startsWith("http://youtube.com/embed/");
+                    if (ytMatch) {
+                        const id = url.split("/")?.pop()?.split("=")?.pop();
+                        const div = document.createElement("div");
+                        div.classList.add("messageYouTubeEmbedWrapper");
+                        const r = await fetch(`https://huopa-yt-api.deno.dev/video?id=${id}`);
+                        if (!r.ok)
+                            continue;
+                        const title = (await r.json()).title;
+                        const t = document.createElement("p");
+                        if (title.length < 50)
+                            t.textContent = title;
+                        else 
+                            t.textContent = title.slice(0, 50) + "...";
+                        t.classList.add("messageYouTubeTitle");
+                        const img = document.createElement("img");
+                        img.src = `https://i.ytimg.com/vi/${id}/maxres2.jpg`;
+                        img.classList.add("messageYouTubeThumbnail");
+                        div.append(t, img);
+
+                        const frame = document.createElement("iframe");
+                        frame.src = `https://www.yout-ube.com/watch?v=${id}`;
+                        frame.classList.add("messageYouTubeEmbed");
+
+                        img.onclick = () => {
+                            t.remove();
+                            img.remove();
+                            div.append(frame);
+                        }
+                        embeds.append(div);
+                        continue;
+                    }
+
+                    // Images/Videos
+                    const extMatch = url.includes(".gif") || url.includes(".png") || url.includes(".jpg") || url.includes(".webp") || url.includes(".jpeg") || url.includes(".mp4") || url.includes(".mov") || url.includes(".mkv");
                     if (!extMatch && !url.includes("media.discordapp")) url = url + ".gif";
                     url = "https://proxy.mistium.com/cors?url=" + encodeURIComponent(url)
                     url = url.replace("cdn.discordapp.com","media.discordapp.net");
@@ -407,25 +455,51 @@
                                 imgEl = document.createElement("img");
                             }
                             imgEl.classList.add("messageImageEmbed");
-                            imgEl.src = url;
+                            imgEl.src = getImage(url);
                             embeds.append(imgEl);
                         }
+                        continue;
                         
                     }
+                    
                 }
             }
         } catch (error) {
             console.error("Failed to add attachment!", error);
         }
-        let count = Number(
-            [...messageArea.children].reverse()[0].id.split("-")[1]
-        );
+
+        let count;
+        if (!old) {
+            try {
+                count = Number(
+                    [...messageArea.children].reverse()[0].id.split("-")[1]
+                );
+            } catch {
+                count = 0;
+            }
+        } else {
+            count = messageList.length - 1 - i;
+            div.id = `message-${count}`;
+            split.id = `messageSplit-${count}`;
+        }
 
         div.id = `message-${++count}`;
         split.id = `messageSplit-${count}`;
-        if (lastUser == msg.user) div.append(hoverMenu, text, embeds, emojis); else { messageArea.append(split); div.append(hoverMenu, userDiv, text, embeds, emojis); }
+        let appendSplit = false;
+        if (old ? messageList[i + 1]?.user == msg.user : lastUser == msg.user) div.append(hoverMenu, text, embeds, emojis); else {
+            if (!old)
+                messageArea.append(split);
+            else
+                appendSplit = true;
+            div.append(hoverMenu, userDiv, text, embeds, emojis);
+        }
         lastUser = msg.user;
-        messageArea.append(div);
+        if (!old)
+            messageArea.append(div);
+        else
+            messageArea.prepend(div);
+        if (appendSplit)
+            messageArea.prepend(split);
         messageStore[msg.id] = { el: div, data: msg };
         messageStore["count-" + count] = { el: div, data: msg };
         if (await checkPing(msg)) div.classList.add("pingedMessage");
@@ -692,170 +766,13 @@
                 await new Promise((r) => setTimeout(r, 50));
             }
             currentPermissions = perms;
-            const messageList = messages.reverse();
+            messageList = messages.reverse();
             messages = null;
             messageArea.innerHTML = "";
             lastUser = messageList[0]?.user;
             for (let i = 0; i < messageList.length; i++) {
                 const msg = messageList[i];
-                if (msg.type !== "message") continue;
-                const div = document.createElement("div");
-                const username = document.createElement("p");
-                const userPfp = document.createElement("img");
-                const userDiv = document.createElement("div");
-                const text = document.createElement("div");
-                const emojis = document.createElement("div");
-
-                const hoverMenu = document.createElement("div");
-                hoverMenu.style.display = "none";
-                div.addEventListener("mouseenter", () => { hoverMenu.style.display = "flex"; div.classList.add("messageHover") });
-                div.addEventListener("mouseleave", () => { hoverMenu.style.display = "none"; div.classList.remove("messageHover") });
-                hoverMenu.classList.add("messageControlMenu");
-                const deleteMessage = document.createElement("button");
-                deleteMessage.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2-icon lucide-trash-2"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
-                deleteMessage.classList.add("messageControlMenuButton");
-                deleteMessage.classList.add("messageDeleteButton");
-                if (msg.user !== userData.username) deleteMessage.style.display = checkPermissions("delete") ? "block" : "none";
-                deleteMessage.onclick = () => ws.send(`{"cmd":"message_delete", "channel":"${currentChannel}", "id":"${msg.id}"}`);
-                const reactMessage = document.createElement("button");
-                reactMessage.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-smile-plus-icon lucide-smile-plus"><path d="M22 11v1a10 10 0 1 1-9-10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/><path d="M16 5h6"/><path d="M19 2v6"/></svg>`;
-                reactMessage.classList.add("messageControlMenuButton");
-                reactMessage.classList.add("messageReactButton");
-                reactMessage.onclick = () => { 
-                    reactMessage.disabled = "true";
-                    const input = document.createElement("input");
-                    input.placeholder = "React";
-                    input.classList.add("messageReactionAddInput");
-                    input.addEventListener("keydown", (e) => {
-                        if (e.key == "Enter") {
-                            let valid = true;
-                            let val = input.value;
-                            if (val.length > 1 || val == "x") {
-                                if (val.startsWith(":")) {
-                                    val = shortcodeToEmoji[val];
-                                    if (!val) valid = false;
-                                } else {
-                                    val = shortcodeToEmoji[":" + val + ":"];
-                                    if (!val) valid = false;
-                                }
-                            }
-                            if (val?.length == 0) valid = false;
-                            if (!reactedMessages[val]) reactedMessages[val] = [];
-                            if (valid) if (reactedMessages[val].includes(msg.id)) {
-                                const i = reactedMessages[val].indexOf(msg.id);
-                                if (i !== -1) reactedMessages[val].splice(i, 1);
-                                ws.send(`{"cmd":"message_react_remove", "channel":"${currentChannel}", "emoji":"${val}", "id":"${msg.id}"}`);
-                            } else {
-                                reactedMessages[val].push(msg.id);
-                                ws.send(`{"cmd":"message_react_add", "channel":"${currentChannel}", "emoji":"${val}", "id":"${msg.id}"}`);
-                            }
-                            reactMessage.disabled = "";
-                            input.remove();
-                        }
-                    })
-                    hoverMenu.prepend(input);
-                    input.focus();
-                }
-                hoverMenu.append(reactMessage, deleteMessage);
-
-                emojis.classList.add("messageEmojis");
-                text.innerHTML = parseMarkdown(msg.content);
-                div.classList.add("message");
-                userDiv.classList.add("userDiv");
-                username.classList.add("username");
-                userPfp.classList.add("userPfp");
-                text.classList.add("messageContent");
-                username.textContent = msg.user;
-                userPfp.src = await getPfp(msg.user);
-                userPfp.onclick = () => previewProfile(msg.user);
-                userDiv.append(userPfp, username);
-                if (await checkPing({channel: name, ...msg})) div.classList.add("pingedMessage");
-                const split = document.createElement("div");
-                split.classList.add("messageSplit");
-                const embeds = document.createElement("div");
-                const urlRegex = /(?<!<)https?:\/\/[^\s>]+(?!>)/g;
-                const match = msg.content.match(urlRegex);
-                embeds.classList.add("messageEmbedBox");
-                let imgEl;
-                try {
-                    if (match) {
-                        let urls = match;
-                        if (!urls) return
-                        for (const u of urls) {
-                            let url = u;
-                            const extRegex = /\.(png|jpe?g|gif|bmp|webp|tiff)$/i;
-                            const extMatch = url.match(extRegex);
-                            if (!extMatch && !url.includes("media.discordapp")) url = url + ".gif";
-                            url = "https://proxy.mistium.com/cors?url=" + encodeURIComponent(url)
-                            url = url.replace("cdn.discordapp.com","media.discordapp.net");
-                            const response = await fetch(url);
-                            if (response.ok) {
-                                const contentType = response.headers.get('Content-Type');
-                                if (contentType.startsWith("video/") || contentType.startsWith("image/")) {
-                                    if (contentType.startsWith("video/")) {
-                                        imgEl = document.createElement("video");
-                                    } else {
-                                        imgEl = document.createElement("img");
-                                    }
-                                    imgEl.classList.add("messageImageEmbed");
-                                    imgEl.src = url;
-                                    embeds.append(imgEl);
-                                }
-                                
-                            }
-                        }
-                    }
-                } catch (error) {
-                    console.error("Failed to add attachment!", error);
-                }
-                let messageSplit = false;
-                if (msg.reactions) {
-                    const keys = Object.keys(msg.reactions);
-                    for (let i = 0; i < keys.length; i++) {
-                        const key = keys[i];
-                        const value = msg.reactions[key];
-                        const div = document.createElement("div");
-                        div.classList.add(encodeEmoji(key))
-                        if (value.includes(userData.username)) {
-                            if (!reactedMessages[key]) reactedMessages[key] = [];
-                            reactedMessages[key].push(msg.id);
-                            div.classList.add("messageReactionEnabled");
-                        }
-                        emojis.style.marginTop = "0.5em";
-                        try { div.classList.add(key, "messageReaction"); } catch {
-                            continue;
-                        }
-                        div.textContent = `${key} ${value.length}`;
-                        emojis.append(div);
-                        div.onclick = () => { 
-                            if (!reactedMessages[key]) reactedMessages[key] = [];
-                            if (reactedMessages[key].includes(msg.id)) {
-                                const i = reactedMessages[key].indexOf(msg.id);
-                                if (i !== -1) reactedMessages[key].splice(i, 1);
-                                div.classList.remove("messageReactionEnabled");
-                                ws.send(`{"cmd":"message_react_remove", "channel":"${currentChannel}", "emoji":"${key}", "id":"${msg.id}"}`);
-                            } else {
-                                reactedMessages[key].push(msg.id);
-                                div.classList.add("messageReactionEnabled");
-                                ws.send(`{"cmd":"message_react_add", "channel":"${currentChannel}", "emoji":"${key}", "id":"${msg.id}"}`);
-                            }
-                        }
-                    }
-                }
-                const count = messageList.length - 1 - i;
-                div.id = `message-${count}`;
-                split.id = `messageSplit-${count}`;
-                if (messageList[i + 1]?.user == msg.user) div.append(hoverMenu, text, embeds, emojis); else { messageSplit = true; div.append(hoverMenu, userDiv, text, embeds, emojis); }
-                messageArea.prepend(div);
-                if (messageSplit) messageArea.prepend(split);
-                messageStore[msg.id] = { el: div, data: msg };
-                messageStore["count-" + count] = { el: div, data: msg };
-                setTimeout(() => {
-                    text.querySelectorAll('pre code').forEach((block) => {
-                        hljs.highlightElement(block);
-                    });
-                }, 20);
-                
+                await newMsg(msg, true, i);
             }
             messageArea.scrollTop = messageArea.scrollHeight + 10000;
         }
