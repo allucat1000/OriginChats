@@ -326,7 +326,7 @@
 
     async function fetchS(url) {
         try {
-            const r = await fetch(url);
+            const r = await fetch("https://proxy.mistium.com/?url=" + encodeURIComponent(url));
             if (!r.ok) return null;
             return await r.text();
         } catch {
@@ -336,7 +336,7 @@
 
     async function detectType(url) {
         try {
-            const res = await fetch(url, { method: "HEAD" });
+            const res = await fetch("https://proxy.mistium.com/?url=" + encodeURIComponent(url), { method: "HEAD" });
             const type = res.headers.get("content-type");
 
             if (type && type.startsWith("image/")) return "image";
@@ -364,11 +364,26 @@
                 const id = url.match(/(v=|youtu\.be\/)([\w\-]+)/)?.[2];
                 if (!id) break;
 
+                const div = document.createElement("div");
+                div.classList.add("embedVideoDiv");
+
+
+                const img = document.createElement("img");
+                img.src = `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
+                img.classList.add("embedVideoThumbnail");
+
                 const el = document.createElement("iframe");
-                el.className = "embedVideo";
-                el.src = `https://youtube.com/embed/${id}`;
+                el.classList.add("embedVideo")
+                el.src = `https://yout-ube.com/watch?v=${id}`;
                 el.allow = "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture";
-                return el;
+
+                div.append(img);
+                img.onclick = () => {
+                    img.remove();
+                    div.append(el);
+                }
+
+                return div;
             }
 
             case "image": {

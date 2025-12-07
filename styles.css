@@ -269,10 +269,23 @@ pre {
     width: 64px;
 }
 
-.embedVideo {
+.embedVideoDiv {
     border-style: none;
     border-radius: 0.5em;
-    max-height: 20em;
+    height: 20em;
+}
+
+.embedVideoThumbnail {
+    height: 20em;
+    border-radius: 0.5em;
+    cursor: pointer;
+}
+
+.embedVideo {
+    width: 568px;
+    height: 20em;
+    border-style: none;
+    border-radius: 0.5em;
 }
 
 .embedDescription {
