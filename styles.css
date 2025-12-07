@@ -272,6 +272,7 @@ pre {
 .embedVideo {
     border-style: none;
     border-radius: 0.5em;
+    max-height: 20em;
 }
 
 .embedDescription {
