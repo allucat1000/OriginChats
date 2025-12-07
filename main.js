@@ -361,7 +361,7 @@
         switch (provider) {
 
             case "youtube": {
-                const id = url.match(/(v=|youtu\.be\/)([\w\-]+)/)?.[2];
+                const id = url.match(/(?:v=|youtu\.be\/|shorts\/)([\w\-]+)/)?.[1];
                 if (!id) break;
 
                 const div = document.createElement("div");
@@ -555,6 +555,42 @@
             count = messageList.length - 1 - i;
             div.id = `message-${count}`;
             split.id = `messageSplit-${count}`;
+        }
+
+        if (old) {
+            if (msg.reactions) {
+                const keys = Object.keys(msg.reactions);
+                for (let i = 0; i < keys.length; i++) {
+                    const key = keys[i];
+                    const value = msg.reactions[key];
+                    const div = document.createElement("div");
+                    div.classList.add(encodeEmoji(key))
+                    if (value.includes(userData.username)) {
+                        if (!reactedMessages[key]) reactedMessages[key] = [];
+                        reactedMessages[key].push(msg.id);
+                        div.classList.add("messageReactionEnabled");
+                    }
+                    emojis.style.marginTop = "0.5em";
+                    try { div.classList.add(key, "messageReaction"); } catch {
+                        continue;
+                    }
+                    div.textContent = `${key} ${value.length}`;
+                    emojis.append(div);
+                    div.onclick = () => { 
+                        if (!reactedMessages[key]) reactedMessages[key] = [];
+                        if (reactedMessages[key].includes(msg.id)) {
+                            const i = reactedMessages[key].indexOf(msg.id);
+                            if (i !== -1) reactedMessages[key].splice(i, 1);
+                            div.classList.remove("messageReactionEnabled");
+                            ws.send(`{"cmd":"message_react_remove", "channel":"${currentChannel}", "emoji":"${key}", "id":"${msg.id}"}`);
+                        } else {
+                            reactedMessages[key].push(msg.id);
+                            div.classList.add("messageReactionEnabled");
+                            ws.send(`{"cmd":"message_react_add", "channel":"${currentChannel}", "emoji":"${key}", "id":"${msg.id}"}`);
+                        }
+                    }
+                }
+            }
         }
 
         div.id = `message-${++count}`;
