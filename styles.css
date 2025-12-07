@@ -258,17 +258,43 @@ pre {
     height: 48px;
 }
 
-.messageImageEmbed {
+.embedImage {
     border-radius: 0.5em;
-    margin: 0.5em 0;
     max-height: 20em;
     max-width: calc(100% - 1em);
+    margin: 0.25em 0;
 }
 
-.messageEmbedBox {
+.genericImage {
+    width: 64px;
+}
+
+.embedVideo {
+    border-style: none;
+    border-radius: 0.5em;
+}
+
+.embedDescription {
+    margin-bottom: 0.5em;
+}
+
+.embedTitle {
+    font-size: larger;
+    font-weight: bold;
+    margin-bottom: 0.25em;
+}
+
+.embedBox {
+    background-color: rgb(20, 20, 20, 0.3);
+    border-radius: 0.5em;
+    padding: 1em;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+}
+
+.messageEmbeds {
+    margin-top: 0.5em;
     margin-left: 2.75em;
 }
 

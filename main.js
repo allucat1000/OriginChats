@@ -11,7 +11,7 @@
     const mainDiv = document.getElementById("main");
     mainDiv.style.display = "none";
 
-    let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList;
+    let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList;
     let pings = {};
     let reactedMessages = {};
     let messageStore = {};
@@ -318,6 +318,119 @@
         return false;
     }
 
+    function unescapeHTML(h) {
+        const p = document.createElement("p");
+        p.innerHTML = h;
+        return p.textContent;
+    }
+
+    async function fetchS(url) {
+        try {
+            const r = await fetch(url);
+            if (!r.ok) return null;
+            return await r.text();
+        } catch {
+            return null;
+        }
+    }
+
+    async function detectType(url) {
+        try {
+            const res = await fetch(url, { method: "HEAD" });
+            const type = res.headers.get("content-type");
+
+            if (type && type.startsWith("image/")) return "image";
+            if (type && type.startsWith("video/")) return "video";
+            return "generic";
+        } catch (e) {
+            return "generic";
+        }
+    }
+
+    async function detectProvider(url) {
+        if (/youtube\.com|youtu\.be/.test(url)) return "youtube";
+        if (/twitter\.com/.test(url)) return "twitter";
+        if (/twitch\.tv/.test(url)) return "twitch";
+
+        return await detectType(url);
+    }
+
+    async function generateEmbed(url) {
+        const provider = await detectProvider(url);
+
+        switch (provider) {
+
+            case "youtube": {
+                const id = url.match(/(v=|youtu\.be\/)([\w\-]+)/)?.[2];
+                if (!id) break;
+
+                const el = document.createElement("iframe");
+                el.className = "embedVideo";
+                el.src = `https://youtube.com/embed/${id}`;
+                el.allow = "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture";
+                return el;
+            }
+
+            case "image": {
+                const el = document.createElement("img");
+                el.className = "embedImage";
+
+                el.src = await getImage(url);
+                return el;
+            }
+
+            case "video": {
+                const el = document.createElement("video");
+                el.className = "embedVideo";
+                el.src = url;
+                el.controls = true;
+                return el;
+            }
+        }
+
+        // OpenGraph / oEmbed
+        const raw = await fetchS(url);
+        if (!raw) return null;
+
+        const meta = {};
+        const ogRegex = /<meta[^>]+property=["']og:([^"']+)["'][^>]+content=["']([^"']+)["']/gi;
+
+        let m;
+        while ((m = ogRegex.exec(raw))) {
+            meta[m[1]] = m[2];
+        }
+
+        const container = document.createElement("div");
+        container.className = "embedBox";
+
+        if (meta.title) {
+            const t = document.createElement("div");
+            t.className = "embedTitle";
+            t.textContent = unescapeHTML(meta.title);
+            container.append(t);
+        }
+
+        if (meta.description) {
+            const d = document.createElement("div");
+            d.className = "embedDescription";
+            d.textContent = unescapeHTML(meta.description);
+            container.append(d);
+        }
+
+        if (meta.image) {
+            const img = document.createElement("img");
+            img.classList.add("embedImage", "genericImage");
+            if (meta["image:width"]) img.style.width = meta["image:width"] + "px";
+            if (meta["image:height"]) img.style.height = meta["image:height"] + "px";
+            img.src = meta["image:secure_url"] || meta.image;
+            container.append(img);
+        }
+
+        return container;
+    }
+
+
+
     async function newMsg(msg, old = false, i = 0) {
         if (msg.channel !== currentChannel) if (msg.channel) { await checkPing(msg); return; };
         if (msg.type !== "message") return
@@ -387,85 +500,27 @@
         username.classList.add("username");
         userPfp.classList.add("userPfp");
         text.classList.add("messageContent");
+        const time = document.createElement("p");
+        time.classList.add("userDivDate");
+        time.textContent = formatDate(msg.timestamp);
         username.textContent = msg.user;
         userPfp.src = await getPfp(msg.user);
         userPfp.onclick = () => previewProfile(msg.user);
-        userDiv.append(userPfp, username);
+        userDiv.append(userPfp, username, time);
         const split = document.createElement("div");
         split.classList.add("messageSplit");
         const embeds = document.createElement("div");
-        const urlRegex = /(?<!<)https?:\/\/[^\s<>]+(?!>)/;
-        const match = msg.content.match(urlRegex);
-        embeds.classList.add("messageEmbedBox");
-        let imgEl;
-        try {
-            if (match) {
-                let urls = match;
-                if (!urls) return
-                for (const u of urls) {
-                    let url = u;
-
-                    // YT Videos
-                    const fpU = url?.replace("https", "http")?.replace("www.", "");
-                    const ytMatch = fpU?.startsWith("http://youtube.com/watch?v=") || fpU?.startsWith("http://youtube.com/shorts/") || fpU?.startsWith("http://youtube.com/embed/");
-                    if (ytMatch) {
-                        const id = url.split("/")?.pop()?.split("=")?.pop();
-                        const div = document.createElement("div");
-                        div.classList.add("messageYouTubeEmbedWrapper");
-                        const r = await fetch(`https://huopa-yt-api.deno.dev/video?id=${id}`);
-                        if (!r.ok)
-                            continue;
-                        const title = (await r.json()).title;
-                        const t = document.createElement("p");
-                        if (title.length < 50)
-                            t.textContent = title;
-                        else 
-                            t.textContent = title.slice(0, 50) + "...";
-                        t.classList.add("messageYouTubeTitle");
-                        const img = document.createElement("img");
-                        img.src = `https://i.ytimg.com/vi/${id}/maxres2.jpg`;
-                        img.classList.add("messageYouTubeThumbnail");
-                        div.append(t, img);
-
-                        const frame = document.createElement("iframe");
-                        frame.src = `https://www.yout-ube.com/watch?v=${id}`;
-                        frame.classList.add("messageYouTubeEmbed");
-
-                        img.onclick = () => {
-                            t.remove();
-                            img.remove();
-                            div.append(frame);
-                        }
-                        embeds.append(div);
-                        continue;
-                    }
-
-                    // Images/Videos
-                    const extMatch = url.includes(".gif") || url.includes(".png") || url.includes(".jpg") || url.includes(".webp") || url.includes(".jpeg") || url.includes(".mp4") || url.includes(".mov") || url.includes(".mkv");
-                    if (!extMatch && !url.includes("media.discordapp")) url = url + ".gif";
-                    url = "https://proxy.mistium.com/cors?url=" + encodeURIComponent(url)
-                    url = url.replace("cdn.discordapp.com","media.discordapp.net");
-                    const response = await fetch(url);
-                    if (response.ok) {
-                        const contentType = response.headers.get('Content-Type');
-                        if (contentType.startsWith("video/") || contentType.startsWith("image/")) {
-                            if (contentType.startsWith("video/")) {
-                                imgEl = document.createElement("video");
-                            } else {
-                                imgEl = document.createElement("img");
-                            }
-                            imgEl.classList.add("messageImageEmbed");
-                            imgEl.src = await getImage(url);
-                            embeds.append(imgEl);
-                        }
-                        continue;
-                        
-                    }
-                    
-                }
+        const urlRegex = /(?<!<)https?:\/\/[^\s<>]+(?!>)/g;
+        const foundUrls = msg.content.match(urlRegex) || [];
+        embeds.classList.add("messageEmbeds");
+        div.append(embeds);
+        for (const link of foundUrls) {
+            const embedEl = await generateEmbed(link);
+            if (embedEl) {
+                if (embedEl.classList.contains("embedBox") && embedEl.children.length === 0)
+                    continue;
+                embeds.append(embedEl);
             }
-        } catch (error) {
-            console.error("Failed to add attachment!", error);
         }
 
         let count;
@@ -486,13 +541,14 @@
         div.id = `message-${++count}`;
         split.id = `messageSplit-${count}`;
         let appendSplit = false;
-        if (old ? messageList[i + 1]?.user == msg.user : lastUser == msg.user) div.append(hoverMenu, text, embeds, emojis); else {
+        if ((old ? messageList[i + 1]?.user == msg.user : lastUser == msg.user) && (checkDates(old ? messageList[i + 1]?.timestamp : lastDate, msg.timestamp))) div.append(hoverMenu, text, embeds, emojis); else {
             if (!old)
                 messageArea.append(split);
             else
                 appendSplit = true;
             div.append(hoverMenu, userDiv, text, embeds, emojis);
         }
+        lastDate = msg.timestamp;
         lastUser = msg.user;
         if (!old)
             messageArea.append(div);
@@ -515,6 +571,32 @@
         return "u" + Array.from(str)
             .map(c => c.codePointAt(0).toString(16))
             .join("-");
+    }
+
+    function checkDates(t1, t2) {
+        const d1 = new Date(t1 * 1000);
+        const d2 = new Date(t2 * 1000);
+        if (d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear())
+            if (d1.getHours() === d2.getHours())
+                return true;
+            else
+                return false;
+        else
+            return false;
+    }
+
+    function formatDate(timestamp) {
+        const cur = new Date(Date.now())
+        const date = new Date(timestamp * 1000);
+        function pad(s) {
+            return String(s).padStart(2, "0");
+        }
+
+        if (cur.getDate() === date.getDate() && cur.getMonth() === date.getMonth() && cur.getFullYear() === date.getFullYear()) {
+            return `${pad(date.getHours())}:${pad(date.getMinutes())}`
+        } else {
+            return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        }
     }
 
     async function toggleReact(data, add) {
@@ -571,8 +653,8 @@
         if (top) {
             const count = Number(el.id.split("-")[1]) + 1
             const lower = messageArea.querySelector(`#message-${count}`);
+            const msg = messageStore[`count-${count}`];
             if (lower) {
-                const msg = messageStore[`count-${count}`];
                 if (msg.data.user == delMsg.user) {
                     const split = document.createElement("div");
                     split.classList.add("messageSplit");
@@ -580,13 +662,16 @@
                     const userDiv = document.createElement("div");
                     const username = document.createElement("p");
                     const userPfp = document.createElement("img");
+                    const time = document.createElement("p");
+                    time.classList.add("userDivDate");
+                    time.textContent = formatDate(msg.data.timestamp);
                     userDiv.classList.add("userDiv");
                     username.classList.add("username");
                     userPfp.classList.add("userPfp");
                     username.textContent = msg.data.user;
                     userPfp.src = await getPfp(msg.data.user);
                     userPfp.onclick = () => previewProfile(msg.data.user);
-                    userDiv.append(userPfp, username);
+                    userDiv.append(userPfp, username, time);
                     lower.insertBefore(userDiv, lower.children[1]);
                     messageArea.insertBefore(split, lower);
                 }

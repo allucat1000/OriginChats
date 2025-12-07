@@ -1,7 +1,17 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
 
 app.whenReady().then(() => {
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const headers = {
+      ...details.responseHeaders,
+      "Access-Control-Allow-Origin": ["*"],
+      "Access-Control-Allow-Headers": ["*"],
+      "Access-Control-Allow-Methods": ["GET,POST,PUT,DELETE,OPTIONS"]
+    };
+
+    callback({ responseHeaders: headers });
+  });
   const win = new BrowserWindow({
     width: 1680,
     height: 949,
