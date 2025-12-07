@@ -336,7 +336,7 @@
 
     async function detectType(url) {
         try {
-            const res = await fetch("https://proxy.mistium.com/?url=" + encodeURIComponent(url), { method: "HEAD" });
+            const res = await fetch(url, { method: "HEAD" });
             const type = res.headers.get("content-type");
 
             if (type && type.startsWith("image/")) return "image";
@@ -369,7 +369,7 @@
 
 
                 const img = document.createElement("img");
-                img.src = `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
+                img.src = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
                 img.classList.add("embedVideoThumbnail");
 
                 const el = document.createElement("iframe");
