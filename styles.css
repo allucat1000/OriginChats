@@ -295,8 +295,11 @@ pre {
 }
 
 .messageEmbeds {
-    margin-top: 0.5em;
     margin-left: 2.75em;
+}
+
+.messageEmbedsUsed {
+    margin-top: 0.5em;
 }
 
 .messageControlMenu {

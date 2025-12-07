@@ -514,14 +514,18 @@
         const foundUrls = msg.content.match(urlRegex) || [];
         embeds.classList.add("messageEmbeds");
         div.append(embeds);
+        let embedUsed = false;
         for (const link of foundUrls) {
             const embedEl = await generateEmbed(link);
             if (embedEl) {
                 if (embedEl.classList.contains("embedBox") && embedEl.children.length === 0)
                     continue;
+                embedUsed = true;
                 embeds.append(embedEl);
             }
         }
+        if (embedUsed)
+            embeds.classList.add("messageEmbedsUsed");
 
         let count;
         if (!old) {
