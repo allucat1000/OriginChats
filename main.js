@@ -822,7 +822,36 @@
                 console.log("Successfully logged in using token");
                 return true;
             } else {
-                console.error("Failed to login using stored token. Opening login..");
+                if (res.status === 524) {
+                    const lT = document.querySelector("#connectionText");
+                    if (lT) lT.remove();
+                    console.error("Rotur API endpoints are currently down (connection timeout).");
+                    mainDiv.innerHTML = "";
+                    mainDiv.style.display = "block";
+                    const error = document.createElement("h2");
+                    const errorIcon = document.createElement("div");
+                    errorIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-x-icon lucide-circle-x"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`;
+                    errorIcon.classList.add("connectErrorIcon")
+                    error.textContent = `Rotur API endpoints are currently down. If this issue persists, report this issue to the upholders of Rotur.`;
+                    error.classList.add("connectError");
+                    mainDiv.append(error, errorIcon);
+                    return false;
+                } else if (res.status === 500) {
+                    const lT = document.querySelector("#connectionText");
+                    if (lT) lT.remove();
+                    console.error("Server-side error in auth process.", res.statusText);
+                    mainDiv.innerHTML = "";
+                    mainDiv.style.display = "block";
+                    const error = document.createElement("h2");
+                    const errorIcon = document.createElement("div");
+                    errorIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-x-icon lucide-circle-x"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`;
+                    errorIcon.classList.add("connectErrorIcon")
+                    error.textContent = `Failed to access validator, the Rotur server has reported an internal error. If this issue persists, report this issue to the upholders of Rotur.`;
+                    error.classList.add("connectError");
+                    mainDiv.append(error, errorIcon);
+                    return false;
+                } else
+                    console.error("Failed to login using stored token. Opening login..");
             }
         }
         token = await window.electronAPI.login();
@@ -880,6 +909,8 @@
             await new Promise((r) => setTimeout(r, 50));
         }
         mainDiv.style.display = "block";
+        const lT = document.querySelector("#connectionText");
+        if (lT) lT.remove();
 
         window.addEventListener("keydown", (e) => {
             if (e.key == "k" && (e.metaKey || e.ctrlKey)) {

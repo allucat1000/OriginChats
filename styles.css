@@ -466,3 +466,8 @@ pre {
     font-weight: bold;
     color: rgb(175 175 175);
 }
+
+#connectionText {
+    text-align: center;
+    margin: 2em;
+}
