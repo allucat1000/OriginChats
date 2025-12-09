@@ -1,7 +1,7 @@
 import { parseMarkdown, checkPermissions, getImage, getPfp, replaceShortcodes } from "./helpers.js";
-import { open, close } from "./settings.js";
+import { openSettings, closeSettings, settingsOpen } from "./settings.js";
 
-export { mainDiv, userData, shortCodes, currentPermissions };
+export { mainDiv, userData, shortCodes, currentPermissions, config };
 
 const mac = navigator.platform.toUpperCase().includes("MAC");
 if (!mac) document.body.style.backgroundColor = "rgb(0, 0, 0, 0.3)";
@@ -154,6 +154,8 @@ async function connect(url) {
 }
 
 function disconnect() {
+    const lT = document.querySelector("#connectionText");
+    if (lT) lT.remove();
     mainDiv.innerHTML = "";
     mainDiv.style.display = "block";
     const error = document.createElement("h2");
@@ -249,7 +251,8 @@ let nextMessageCount = (() => {
 
 async function fetchS(url) {
     try {
-        const r = await fetch(config.proxy ? config.proxy + encodeURIComponent(url) : url);
+        const p = config?.[0]?.Miscellaneous?.[0]?.state
+        const r = await fetch(p ? p + encodeURIComponent(url) : url);
         if (!r.ok) return null;
         return await r.text();
     } catch {
@@ -913,8 +916,15 @@ async function initUI() {
                 const overlay = document.querySelector(".serverNavigateMenuBackground");
                 if (overlay) { overlay.remove(); serverMenuOpen = false; }
             }
+        } else if (e.key == ","  && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            if (!settingsOpen)
+                openSettings();
+            else 
+                closeSettings();
         }
     })
+
 
     let loadingMsgs = false;
 
