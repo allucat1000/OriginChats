@@ -3,9 +3,10 @@
         "Miscellaneous": [
             {
                 "name":"Proxy",
-                "description":"Use a proxy for media fetching (set to blank for no proxy)",
+                "description":"Use a proxy for media fetching",
                 "type":"input",
-                "state":false
+                "state":false,
+                "inputPlaceholder":"Enter a HTTP proxy URL (keep as blank for no proxy)"
             }
         ]
     }

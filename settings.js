@@ -6,7 +6,6 @@ let settingsOpen = false;
 
 function openTab(data, content, path) {
     content.innerHTML = "";
-    console.log(data);
     for (let id = 0; id < data.length; id++) {
         const o = data[id];
         const div = document.createElement("div");
@@ -27,10 +26,10 @@ function openTab(data, content, path) {
                 const i = document.createElement("input");
                 i.classList.add("settingsMenuContentOptionInputType");
                 i.value = o.state == false ? "" : o.state;
+                if (o.inputPlaceholder) i.placeholder = o.inputPlaceholder;
                 i.addEventListener("input", () => {
                     const val = i.value?.length == 0 ? false : i.value;
                     o.state = val;
-                    console.log(config[path[0]][path[1]], id )
                     config[path[0]][path[1]][id].state = val;
                     localStorage.setItem("config", JSON.stringify(config));
                 });
@@ -59,7 +58,6 @@ function openSettings() {
 
     bg.append(sidebar, content);
 
-    console.log(config);
 
     const title = document.createElement("h2");
     title.textContent = "Settings";
