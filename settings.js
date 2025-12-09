@@ -26,7 +26,7 @@ function openTab(data, content, path) {
             case "input":{
                 const i = document.createElement("input");
                 i.classList.add("settingsMenuContentOptionInputType");
-                i.value = o.state;
+                i.value = o.state == false ? "" : o.state;
                 i.addEventListener("input", () => {
                     const val = i.value?.length == 0 ? false : i.value;
                     o.state = val;
