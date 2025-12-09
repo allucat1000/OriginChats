@@ -1,0 +1,138 @@
+export { escapeHTML, parseMarkdown, checkPermissions, getImage, getPfp, replaceShortcodes };
+import { userData, currentPermissions, shortCodes } from "./main.js";
+
+function escapeHTML(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function parseMarkdown(text) {
+    const lines = text.split("\n");
+    const returned = [];
+    let inCodeBlock = false;
+    let codeLanguage = '';
+    let codeBuffer = [];
+
+    for (let unsafeText of lines) {
+        let line = escapeHTML(unsafeText);
+
+        const codeBlockMatch = line.match(/^```(\w*)$/);
+        if (codeBlockMatch) {
+            if (inCodeBlock) {
+                returned.push(
+                    `<pre><code class="language-${codeLanguage}">` +
+                    codeBuffer.join("\n") +
+                    `</code></pre>`
+                );
+                inCodeBlock = false;
+                codeLanguage = '';
+                codeBuffer = [];
+            } else {
+                inCodeBlock = true;
+                codeLanguage = codeBlockMatch[1] || '';
+                codeBuffer = [];
+            }
+            continue;
+        }
+
+        if (inCodeBlock) {
+            codeBuffer.push(line);
+            continue;
+        }
+
+        line = line.replace(/^(#{1,6})\s+(.*)$/gm, (m, hashes, content) => {
+            const level = hashes.length;
+            return `<h${level}>${content}</h${level}>`;
+        });
+
+        line = line.replace(/\*\*(.+?)\*\*/g, `<span style="font-weight: bold;">$1</span>`);
+
+        line = line.replace(/_(.+?)_/g, `<span style="font-style: italic;">$1</span>`);
+
+        line = line.replace(/(?<!<)https?:\/\/[^\s<]+/g, url => {
+            return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="link">${url}</a>`;
+        });
+
+        line = line.replace(/@([\w-]+)/g, (m, username) => {
+            return `<span class="mention" onclick="previewProfile('${username}')">@${username}</span>`;
+        });
+
+        returned.push(line);
+    }
+
+    if (inCodeBlock) {
+        returned.push(
+            `<pre><code class="language-${codeLanguage}">` +
+            codeBuffer.join("\n") +
+            `</code></pre>`
+        );
+    }
+
+    const parsed = returned.join("\n");
+
+    return DOMPurify.sanitize(parsed, {
+        ALLOWED_TAGS: [
+            "h1","h2","h3","h4","h5","h6",
+            "span","pre","code","a"
+        ],
+        ALLOWED_ATTR: [
+            "style",
+            "onclick",
+            "class",
+            "href",
+            "target",
+            "rel"
+        ]
+    });
+}
+
+function checkPermissions(type) {
+    for (const role of userData.roles) {
+        if (currentPermissions?.[type]?.includes(role)) return true;
+    }
+    return false;
+}
+
+let imageCache = {};
+
+async function getImage(url) {
+    let d = imageCache[url]
+    if (d) return d;
+    const res = await fetch(url);
+    
+    d = URL.createObjectURL(await res.blob());
+    imageCache[url] = d;
+    return d;
+}
+
+let userPfps = {};
+
+async function getPfp(username) {
+    if (userPfps[username]) {
+        while (userPfps[username] === "pending") {
+            await new Promise((r) => setTimeout(r, 10));
+        }
+        return userPfps[username];
+    }
+
+    userPfps[username] = "pending";
+
+    const res = await fetch(`https://avatars.rotur.dev/${username}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    userPfps[username] = url;
+    return url;
+}
+
+function replaceShortcodes(input) {
+    if (!shortCodes) {
+        console.warn("Emoji mappings not loaded yet!");
+        return input;
+    }
+
+    return input.replace(/:[a-zA-Z0-9_+-]+:/g, (match) => {
+        return shortCodes[match] || match;
+    });
+}
