@@ -58,12 +58,20 @@ try {
         })();
     `;
 
+    const blob = new Blob([script], { type: "text/javascript" });
+    const url = URL.createObjectURL(blob);
+
     const scriptEl = document.createElement("script");
     scriptEl.type = "module";
-    scriptEl.src = "data:text/javascript;charset=utf-8," + encodeURIComponent(script);
+    scriptEl.src = url;
     document.head.append(scriptEl);
-    scriptEl.onload = () => 
+
+    scriptEl.onload = async () => {
+        while (!window.shortcodeToEmoji) {
+            await new Promise(r => setTimeout(r, 10));
+        }
         shortCodes = window.shortcodeToEmoji;
+    };
 } catch (error) {
     console.error("Failed to load emoji shortcodes!", error.message)
 }
