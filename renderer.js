@@ -1,17 +1,7 @@
-const { app, BrowserWindow, ipcMain, session } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 
 app.whenReady().then(() => {
-  /*session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    const headers = {
-      ...details.responseHeaders,
-      "Access-Control-Allow-Origin": ["*"],
-      "Access-Control-Allow-Headers": ["*"],
-      "Access-Control-Allow-Methods": ["GET,POST,PUT,DELETE,OPTIONS"]
-    };
-
-    callback({ responseHeaders: headers });
-  });*/
   const win = new BrowserWindow({
     width: 1680,
     height: 949,
@@ -27,6 +17,19 @@ app.whenReady().then(() => {
   });
 
   win.loadFile('index.html');
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  win.webContents.on('will-navigate', (event, url) => {
+    const isLocal = url.startsWith('file://');
+    if (!isLocal) {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
+  });
 
   ipcMain.on('window-control', (event, action) => {
     switch (action) {

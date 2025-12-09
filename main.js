@@ -169,6 +169,10 @@
 
             line = line.replace(/_(.+?)_/g, `<span style="font-style: italic;">$1</span>`);
 
+            line = line.replace(/(?<!<)https?:\/\/[^\s<]+/g, url => {
+                return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+            });
+
             line = line.replace(/@([\w-]+)/g, (m, username) => {
                 return `<span class="mention" onclick="previewProfile('${username}')">@${username}</span>`;
             });
@@ -189,12 +193,15 @@
         return DOMPurify.sanitize(parsed, {
             ALLOWED_TAGS: [
                 "h1","h2","h3","h4","h5","h6",
-                "span", "pre", "code"
+                "span","pre","code","a"
             ],
             ALLOWED_ATTR: [
                 "style",
                 "onclick",
-                "class"
+                "class",
+                "href",
+                "target",
+                "rel"
             ]
         });
     }

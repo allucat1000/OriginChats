@@ -539,3 +539,8 @@ pre {
     text-align: center;
     margin: 2em;
 }
+
+.link {
+    color: #00c0ff;
+    text-decoration: none;
+}
