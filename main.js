@@ -1113,7 +1113,7 @@
                 if (lastScrolled + 5000 > Date.now()) return;
                 if (messageArea.scrollTop < 10) {
                     messageArea.scrollTop = 500;
-                    messageScroll += 50 * ((messageScroll / 50) + 1);
+                    messageScroll += 50;
                     lastScrolled = Date.now();
                     loadMessages(messageScroll, currentChannel);
                 }
