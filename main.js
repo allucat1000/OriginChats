@@ -170,7 +170,7 @@
             line = line.replace(/_(.+?)_/g, `<span style="font-style: italic;">$1</span>`);
 
             line = line.replace(/(?<!<)https?:\/\/[^\s<]+/g, url => {
-                return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+                return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="link">${url}</a>`;
             });
 
             line = line.replace(/@([\w-]+)/g, (m, username) => {
