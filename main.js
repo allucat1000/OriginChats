@@ -11,7 +11,17 @@
     const mainDiv = document.getElementById("main");
     mainDiv.style.display = "none";
 
+    let config = JSON.parse(localStorage.getItem("config") || "{}");
+    if (Object.keys(config).length === 0) {
+        config = await (await fetch("./config.json")).json();
+        localStorage.setItem("config", JSON.stringify(config));
+    }
+
     let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList;
+    let messageScroll = 0;
+    let userColors = {};
+    let userList = {};
+    let userPfps = {};
     let pings = {};
     let reactedMessages = {};
     let messageStore = {};
@@ -324,9 +334,19 @@
         return p.textContent;
     }
 
+    let nextMessageCount = (() => {
+        const items = [...document.querySelectorAll('[id^="message-"]')];
+        const nums = items.map(i => {
+            const m = i.id.match(/^message-(\d+)$/);
+            return m ? Number(m[1]) : -1;
+        });
+        const max = nums.length ? Math.max(...nums) : -1;
+        return max + 1;
+    })();
+
     async function fetchS(url) {
         try {
-            const r = await fetch("https://proxy.mistium.com/?url=" + encodeURIComponent(url));
+            const r = await fetch(config.proxy ? config.proxy + encodeURIComponent(url) : url);
             if (!r.ok) return null;
             return await r.text();
         } catch {
@@ -356,6 +376,7 @@
     }
 
     async function generateEmbed(url) {
+        const o = new URL(url)?.origin?.replace("https", "http");
         const provider = await detectProvider(url);
 
         switch (provider) {
@@ -408,12 +429,13 @@
         if (!raw) return null;
 
         const meta = {};
-        const ogRegex = /<meta[^>]+property=["']og:([^"']+)["'][^>]+content=["']([^"']+)["']/gi;
+        const ogRegex = /<meta(?=[^>]*\bproperty=["']og:([^"']+)["'])(?=[^>]*\bcontent=["']([^"']+)["'])[^>]*>/gi;
 
         let m;
         while ((m = ogRegex.exec(raw))) {
             meta[m[1]] = m[2];
         }
+        
 
         const container = document.createElement("div");
         container.className = "embedBox";
@@ -438,17 +460,16 @@
             if (meta["image:width"]) img.style.width = meta["image:width"] + "px";
             if (meta["image:height"]) img.style.height = meta["image:height"] + "px";
             img.src = meta["image:secure_url"] || meta.image;
-            container.append(img);
+            if (o.startsWith("http://tenor.com"))
+                return img;
+            else
+                container.append(img);
         }
 
         return container;
     }
 
-
-
-    async function newMsg(msg, old = false, i = 0) {
-        if (msg.channel !== currentChannel) if (msg.channel) { await checkPing(msg); return; };
-        if (msg.type !== "message") return
+    function buildMessage(msg, group, old = false) {
         const div = document.createElement("div");
         const username = document.createElement("p");
         const userPfp = document.createElement("img");
@@ -518,43 +539,53 @@
         const time = document.createElement("p");
         time.classList.add("userDivDate");
         time.textContent = formatDate(msg.timestamp);
+        if (userColors[msg.user])
+            username.style.color = userColors[msg.user];
         username.textContent = msg.user;
-        userPfp.src = await getPfp(msg.user);
+        userPfp.src = "";
+        getPfp(msg.user).then(src => userPfp.src = src);
         userPfp.onclick = () => previewProfile(msg.user);
         userDiv.append(userPfp, username, time);
         const split = document.createElement("div");
         split.classList.add("messageSplit");
         const embeds = document.createElement("div");
-        const urlRegex = /(?<!<)https?:\/\/[^\s<>]+(?!>)/g;
-        const foundUrls = msg.content.match(urlRegex) || [];
         embeds.classList.add("messageEmbeds");
         div.append(embeds);
-        let embedUsed = false;
+
+        if (group) {
+            div.append(hoverMenu, text, embeds, emojis);
+        } else {
+            div.append(hoverMenu, userDiv, text, embeds, emojis);
+        }
+
+        const id = nextMessageCount++;
+        div.id = `message-${id}`;
+        split.id = `messageSplit-${id}`;
+
+        const embedPromises = [];
+
+        const urlRegex = /(?<!<)https?:\/\/[^\s<>]+(?!>)/g;
+        const foundUrls = (msg.content.match(urlRegex) || []);
         for (const link of foundUrls) {
+            const placeholder = document.createElement("div");
+            placeholder.classList.add("embedPlaceholder");
+            embeds.append(placeholder);
+
+            const p = (async () => {
             const embedEl = await generateEmbed(link);
             if (embedEl) {
-                if (embedEl.classList.contains("embedBox") && embedEl.children.length === 0)
-                    continue;
-                embedUsed = true;
-                embeds.append(embedEl);
+                placeholder.replaceWith(embedEl);
+                const imgs = embedEl.querySelectorAll ? embedEl.querySelectorAll("img") : [];
+                const imgLoadPromises = [...imgs].map(img => new Promise(res => {
+                if (img.complete) return res();
+                img.onload = img.onerror = () => res();
+                }));
+                await Promise.all(imgLoadPromises);
+            } else {
+                placeholder.remove();
             }
-        }
-        if (embedUsed)
-            embeds.classList.add("messageEmbedsUsed");
-
-        let count;
-        if (!old) {
-            try {
-                count = Number(
-                    [...messageArea.children].reverse()[0].id.split("-")[1]
-                );
-            } catch {
-                count = 0;
-            }
-        } else {
-            count = messageList.length - 1 - i;
-            div.id = `message-${count}`;
-            split.id = `messageSplit-${count}`;
+            })();
+            embedPromises.push(p);
         }
 
         if (old) {
@@ -593,33 +624,53 @@
             }
         }
 
-        div.id = `message-${++count}`;
-        split.id = `messageSplit-${count}`;
+        messageStore[msg.id] = { el: div, data: msg };
+        messageStore["count-" + id] = { el: div, data: msg };
+
+        const hljsPromise = new Promise(res => {
+            requestAnimationFrame(() => {
+                text.querySelectorAll('pre code').forEach(block => {
+                    try { hljs.highlightElement(block); } catch {}
+                });
+                requestAnimationFrame(res);
+            });
+        });
+
+        checkPing(msg).then(r => { if (r) div.classList.add("pingedMessage") })
+
+        const ready = Promise.all([hljsPromise, ...embedPromises]);
+
+        return { el: div, splitEl: split, ready, msgId: msg.id, data: msg };
+    }
+
+
+
+
+    async function newMsg(msg, old = false, f) {
+        if (msg.channel !== currentChannel) if (msg.channel) { await checkPing(msg); return; };
+        if (msg.type !== "message") return
+
+        let obj
+        
         let appendSplit = false;
-        if ((old ? messageList[i + 1]?.user == msg.user : lastUser == msg.user) && (checkDates(old ? messageList[i + 1]?.timestamp : lastDate, msg.timestamp))) div.append(hoverMenu, text, embeds, emojis); else {
-            if (!old)
-                messageArea.append(split);
-            else
-                appendSplit = true;
-            div.append(hoverMenu, userDiv, text, embeds, emojis);
-        }
+        if ((old ? messageList[nextMessageCount + 1]?.user == msg.user : lastUser == msg.user) && (checkDates(old ? messageList[nextMessageCount + 1]?.timestamp : lastDate, msg.timestamp)))
+            obj = buildMessage(msg, true, old);
+        else
+            obj = buildMessage(msg, false, old);
+        
         lastDate = msg.timestamp;
         lastUser = msg.user;
         if (!old)
-            messageArea.append(div);
+            f.append(obj.el);
         else
-            messageArea.prepend(div);
+            f.prepend(obj.el);
         if (appendSplit)
-            messageArea.prepend(split);
-        messageStore[msg.id] = { el: div, data: msg };
-        messageStore["count-" + count] = { el: div, data: msg };
-        if (await checkPing(msg)) div.classList.add("pingedMessage");
-        setTimeout(() => {
-                messageArea.scrollTop = messageArea.scrollHeight + 100;
-                text.querySelectorAll('pre code').forEach((block) => {
-                hljs.highlightElement(block);
-            });
-        }, 20);
+            f.prepend(obj.splitEl);
+
+        if (!old)
+            requestAnimationFrame(() => messageArea.scrollTop = messageArea.scrollHeight + 100);
+        
+        
     }
 
     function encodeEmoji(str) {
@@ -787,7 +838,10 @@
                 case "ping":
                     break;
                 case "message_new":
-                    newMsg({ channel: data.channel, ...data.message });
+                    messageScroll++;
+                    const f = document.createDocumentFragment();
+                    await newMsg({ channel: data.channel, ...data.message }, false, f);
+                    messageArea.append(f);
                     break;
                 case "message_react_add":
                     toggleReact({ from: data.from, id: data.id, channel: data.channel, emoji: data.emoji }, true);
@@ -802,8 +856,18 @@
                     break;
                 case "message_edit":
                     editMessage(data);
+                    break;
                 case "error":
                     console.error(data.val);
+                    break;
+                case "users_list":
+                    userList = data.users;
+                    userColors = {};
+                    for (const user of userList) {
+                        const name = user.username;
+                        if (!user?.color || user.color === "white" || user.color.startsWith("#fff") || user.color === "rgb(255, 255, 255)") continue;
+                        userColors[name] = user.color;
+                    }
                     break;
                 default:
                     console.warn(`Unknown command sent by server: '${cmd}'`);
@@ -868,15 +932,24 @@
         }
     }
 
-    let userPfps = {};
-
     async function getPfp(username) {
-        if (userPfps[username]) return userPfps[username];
+        if (userPfps[username]) {
+            while (userPfps[username] === "pending") {
+                await new Promise((r) => setTimeout(r, 10));
+            }
+            return userPfps[username];
+        }
+
+        userPfps[username] = "pending";
+
         const res = await fetch(`https://avatars.rotur.dev/${username}`);
-        const url = URL.createObjectURL(await res.blob());
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+
         userPfps[username] = url;
         return url;
     }
+
 
     let serverMenuOpen = false;
 
@@ -900,6 +973,35 @@
         mainDiv.append(overlay);
     }
 
+    let gifPickerOpen = false;
+
+
+    const picker = document.createElement("div");
+    picker.classList.add("gifPickerDiv");
+    document.querySelector("#chatArea").append(picker);
+    picker.classList.add("closed");
+
+    function toggleGifPicker() {
+        if (!gifPickerOpen) {
+            gifPickerOpen = true;
+            picker.innerHTML = "";
+            picker.classList.remove("closed");
+        } else {
+            picker.classList.add("closed");
+            gifPickerOpen = false;
+            return;
+        }
+
+        const input = document.createElement("input");
+        input.classList.add("gifPickerInput");
+        input.placeholder = "Search for a GIF";
+
+        const results = document.createElement("div");
+        results.classList.add("gifPickerResults");
+
+        picker.append(input, results);
+    }
+
 
     async function initUI() {
         const chatInput = document.getElementById("chatInput");
@@ -907,6 +1009,11 @@
         ws.send('{"cmd":"channels_get"}');
         while (!channels) {
             await new Promise((r) => setTimeout(r, 50));
+        }
+
+        ws.send('{"cmd":"users_list"}');
+        while (!userColors) {
+            await new Promise((res) => setTimeout(res, 10));
         }
         mainDiv.style.display = "block";
         const lT = document.querySelector("#connectionText");
@@ -924,7 +1031,33 @@
             }
         })
 
+        let loadingMsgs = false;
+
+        async function loadMessages(start, name) {
+            if (loadingMsgs) return;
+            loadingMsgs = true;
+            console.warn(start);
+            ws.send(`{"cmd":"messages_get", "channel":"${name}", "start":${start}, "limit":50}`);
+            while (!messages) {
+                await new Promise((r) => setTimeout(r, 50));
+            }
+            messageList = messages.reverse();
+            messages = null;
+            lastUser = messageList[0]?.user;
+            const f = document.createDocumentFragment();
+            for (let i = 0; i < messageList.length; i++) {
+                const msg = messageList[i];
+                await newMsg(msg, true, f);
+                if (start === 0)
+                    messageArea.scrollTop = messageArea.scrollHeight + 100;
+            }
+            messageArea.prepend(f);
+            loadingMsgs = false;
+        }
+
         async function openChannel(name, perms) {
+            messageArea.innerHTML = "";
+            messageScroll = 0;
             messageStore = {};
             const channelDiv = channelSidebar.querySelector("#channel-" + name);
             if (channelDiv) channelDiv.textContent = "#" + name;
@@ -932,19 +1065,8 @@
             chatInput.disabled = "";
             chatInput.placeholder = `Send a message in #${name}`;
             title.textContent = `#${name} — ${serverInfo.name} — Originchats`;
-            ws.send(`{"cmd":"messages_get", "channel":"${name}"}`);
-            while (!messages) {
-                await new Promise((r) => setTimeout(r, 50));
-            }
             currentPermissions = perms;
-            messageList = messages.reverse();
-            messages = null;
-            messageArea.innerHTML = "";
-            lastUser = messageList[0]?.user;
-            for (let i = 0; i < messageList.length; i++) {
-                const msg = messageList[i];
-                await newMsg(msg, true, i);
-            }
+            await loadMessages(messageScroll, name);
             messageArea.scrollTop = messageArea.scrollHeight + 10000;
         }
 
@@ -957,6 +1079,11 @@
             channelSidebar.append(div);
         }
 
+        const gifPicker = document.querySelector("#gifPicker");
+        gifPicker.onclick = () => {
+            toggleGifPicker();
+        }
+
         chatInput.addEventListener("keydown", (e) => {
             if (!currentChannel) return;
             if (e.key === "Enter" && !e.shiftKey) {
@@ -966,7 +1093,7 @@
                 chatInputUpdate();
             } else if (e.key === "Enter") {
                 e.preventDefault()
-                chatInput.value += "\n";
+                document.execCommand("insertLineBreak");
                 chatInputUpdate();
             }
         })
@@ -974,20 +1101,24 @@
         function chatInputUpdate() {
             chatInput.value = replaceShortcodes(chatInput.value);
 
-            const minHeight = 15; 
-            const maxHeight = 320;
+            chatInput.style.height = 'auto';
 
-            chatInput.style.height = "auto";
-
-            let newHeight = chatInput.scrollHeight - 27;
-            if (chatInput.scrollHeight == 58 && chatInput.value.split("\n").length == 1) newHeight = 0;
-
-            newHeight = Math.max(minHeight, Math.min(newHeight, maxHeight));
-
-            chatInput.style.height = newHeight + "px";
-
-            messageArea.style.height = `calc(100% - 4.5em - ${newHeight - minHeight}px)`;
+            chatInput.style.height = Math.min(chatInput.scrollHeight - 4, 100) + "px";
         }
+        
+        let lastScrolled = 0;
+
+        messageArea.addEventListener("scroll", () => {
+            if (messageArea.scrollHeight > messageArea.offsetHeight) {
+                if (lastScrolled + 5000 > Date.now()) return;
+                if (messageArea.scrollTop < 10) {
+                    messageArea.scrollTop = 500;
+                    messageScroll += 50 * ((messageScroll / 50) + 1);
+                    lastScrolled = Date.now();
+                    loadMessages(messageScroll, currentChannel);
+                }
+            }
+        })
 
 
         chatInput.addEventListener("input", () => {
