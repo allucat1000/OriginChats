@@ -27,7 +27,7 @@ const chatInput = document.getElementById("chatInput");
 let ratelimit = {};
 let messageScroll = 0;
 let userColors = {};
-let userList = {};
+let userList = [];
 
 let pings = {};
 let reactedMessages = {};
@@ -617,6 +617,54 @@ function checkDates(t1, t2) {
         return false;
 }
 
+function renderUserlist(list) {
+    const added = [];
+    const userListDiv = document.querySelector("#userList");
+    userListDiv.innerHTML = "";
+    const onlineTitle = document.createElement("h3");
+    onlineTitle.classList.add("userListTitle");
+    onlineTitle.textContent = "Online";
+    userListDiv.append(onlineTitle)
+    for (const u of list) {
+        if (!u?.username || added.includes(u.username))
+            continue;
+        const div = document.createElement("div");
+        div.classList.add("userListItem");
+        const icon = document.createElement("img");
+        icon.onclick = () => previewProfile(u.username);
+        icon.classList.add("userListIcon");
+        getPfp(u.username).then((d) => icon.src = d);
+        const name = document.createElement("p");
+        name.onclick = () => previewProfile(u.username);
+        name.classList.add("userListName");
+        name.textContent = u.username;
+        div.append(icon, name);
+        added.push(u.username);
+        userListDiv.append(div);
+    }
+    const offlineTitle = document.createElement("h3");
+    offlineTitle.classList.add("userListTitle");
+    offlineTitle.textContent = "Offline";
+    userListDiv.append(offlineTitle);
+    for (const u of userList) {
+        if (!u?.username || added.includes(u.username))
+            continue;
+        const div = document.createElement("div");
+        div.classList.add("userListItemOffline");
+        const icon = document.createElement("img");
+        icon.onclick = () => previewProfile(u.username);
+        icon.classList.add("userListIcon");
+        getPfp(u.username).then((d) => icon.src = d);
+        const name = document.createElement("p");
+        name.onclick = () => previewProfile(u.username);
+        name.classList.add("userListName");
+        name.textContent = u.username;
+        div.append(icon, name);
+        added.push(u.username);
+        userListDiv.append(div);
+    }
+}
+
 function formatDate(timestamp) {
     const cur = new Date(Date.now())
     const date = new Date(timestamp * 1000);
@@ -774,8 +822,6 @@ function initFuncs() {
             case "ready":
                 userData = data.user;
                 break;
-            case "user_connect":
-                break;
             case "channels_get":
                 channels = data.val;
                 break;
@@ -795,8 +841,6 @@ function initFuncs() {
                 break;
             case "message_react_remove":
                 toggleReact({ from: data.from, id: data.id, channel: data.channel, emoji: data.emoji }, false);
-                break;
-            case "user_disconnect":
                 break;
             case "message_delete":
                 deleteMessage(data);
@@ -823,6 +867,21 @@ function initFuncs() {
                     localStorage.setItem("openServer", "wss://chats.mistium.com");
                 }
                 break;
+
+            case "users_online":
+                renderUserlist(data.users);
+                break;
+
+            case "user_connect":
+                if (userList)
+                    ws.send(`{"cmd":"users_online"}`);
+                break;
+
+            case "user_disconnect":
+                if (userList)
+                    ws.send(`{"cmd":"users_online"}`);
+                break;
+
             case "users_list":
                 userList = data.users;
                 userColors = {};
@@ -994,6 +1053,7 @@ async function initUI() {
     while (!userColors) {
         await new Promise((res) => setTimeout(res, 10));
     }
+    ws.send(`{"cmd":"users_online"}`);
     mainDiv.style.display = "block";
     const lT = document.querySelector("#connectionText");
     if (lT) lT.remove();
@@ -1087,10 +1147,10 @@ async function initUI() {
         channelSidebar.append(div);
     }
 
-    const gifPicker = document.querySelector("#gifPicker");
+    /*const gifPicker = document.querySelector("#gifPicker");
     gifPicker.onclick = () => {
         toggleGifPicker();
-    }
+    }*/
 
     chatInput.addEventListener("keydown", (e) => {
         if (!currentChannel) return;

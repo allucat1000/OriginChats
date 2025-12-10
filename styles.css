@@ -73,8 +73,8 @@ body {
 
 #chatArea {
     position: absolute;
-    width: calc(100% - 16em);
-    right: 0;
+    width: calc(100% - 28em);
+    right: 12em;
     top: 0;
     border-width: thin;
     border-left-style: solid;
@@ -691,4 +691,44 @@ pre {
 
 .profilePreviewPronouns {
     color: #b1b1b1;
+}
+
+#userList {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 10em;
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+    border-left: rgba(120, 120, 120, 0.5) solid 1px;
+    padding: 0 1em;
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.userListItem {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+}
+
+.userListTitle {
+    margin: 0.5em 0;
+}
+
+.userListIcon {
+    width: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.userListItemOffline {
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    cursor: pointer;
 }
