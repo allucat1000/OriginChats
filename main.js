@@ -962,7 +962,7 @@ function initFuncs() {
                     return "Multiple people are typing...";
                 }
 
-                if (data?.channel !== currentChannel)
+                if (data?.channel !== currentChannel || data.user === userData.username)
                     return;
 
                 const idx = typing.findIndex(o => o.u === data.user);
