@@ -22,7 +22,7 @@ if (Object.keys(config).length === 0) {
     localStorage.setItem("config", JSON.stringify(config));
 }
 
-let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData, lastTypePacket, typingCleanup;
+let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData, lastTypePacket, typingCleanup, pins;
 let typing = [];
 const chatInput = document.getElementById("chatInput");
 let messageHandling = {};
@@ -429,7 +429,7 @@ async function buildMessage(msg, group, old = false) {
     editMessage.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil-icon lucide-pencil"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`;
     editMessage.classList.add("messageControlMenuButton");
     editMessage.classList.add("messageEditButton");
-    if (msg.user !== userData.username) editMessage.style.display = checkPermissions("edit") ? "block" : "none";
+    if (msg.user !== userData.username) editMessage.style.display = "none";
     editMessage.onclick = () => {
         messageHandling = { type: "edit", id: msg.id, curInputPlaceholder: chatInput.placeholder }
         if (!ratelimit.active) {
@@ -894,6 +894,9 @@ function initFuncs() {
             case "messages_get":
                 messages = data.messages;
                 break;
+            case "messages_pinned":
+                pins = data.messages;
+                break;
             case "ping":
                 break;
             case "message_new":
@@ -1164,6 +1167,8 @@ async function initUI() {
     leaveButton.classList.add("serverLeaveButton");
     leaveButton.textContent = "Leave the server";
     leaveButton.onclick = () => {
+        const leave = confirm("Are you sure you want to leave?");
+        if (!leave) return;
         ws.send(`{"cmd":"user_leave"}`);
         leaveButton.disabled = "true";
     }
@@ -1207,6 +1212,39 @@ async function initUI() {
         }
     })
 
+    let pinsDiv = document.createElement("div");
+    pinsDiv.classList.add("pinsDiv");
+    let pinsMenuOpen = false;
+
+    const pinButton = document.querySelector("#viewPins");
+    pinButton.onclick = async() => {
+        if (!pinsMenuOpen) {
+            pinsMenuOpen = true;
+            if (!currentChannel) return;
+            pinsDiv.innerHTML = `<h2 class="pinsTitle">Pinned messages</h2>`;
+            const loading = document.createElement("p");
+            loading.classList.add("pinsTitle");
+            loading.textContent = "Loading...";
+            pinsDiv.append(loading);
+            mainDiv.append(pinsDiv);
+            ws.send(`{"cmd":"messages_pinned", "channel":"${currentChannel}"}`)
+            while (!pins) {
+                await new Promise((r) => setTimeout(r, 10));
+            }
+            const f = document.createDocumentFragment();
+            for (const m of pins) {
+                const e = await buildMessage(m, false, true,);
+                f.prepend(e.el, e.splitEl);
+            }
+            pins = null;
+            loading.remove();
+            pinsDiv.append(f);
+        } else {
+            pinsDiv.remove();
+            pinsMenuOpen = false;
+        }
+    }
+
 
     let loadingMsgs = false;
 
@@ -1222,6 +1260,7 @@ async function initUI() {
             const errorIcon = document.createElement("div");
             error.classList.add("unknownChannelError");
             error.textContent = "Channel not found";
+            currentChannel = null;
             errorIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-x-icon lucide-circle-x"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`;
             errorIcon.classList.add("connectErrorIcon")
             messageArea.append(error, errorIcon);

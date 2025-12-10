@@ -25,6 +25,7 @@ body {
     width: calc(100% - 1.6em);
     margin: 0;
     -webkit-app-region: drag;
+    display: flex;
 }
 
 #winControls {
@@ -36,17 +37,15 @@ body {
     align-items: center;
     justify-content: flex-end;
     -webkit-app-region: no-drag;
+    height: 46px;
 }
 
 #winClose {
-    background-color: rgba(255, 255, 255, 0.6);
-    border-radius: 50%;
     padding: 0.25em;
-    margin: 1em;
-    width: 16px;
-    height: 16px;
     border-style: none;
     cursor: pointer;
+    margin: 0.75em;
+    background: none;
 }
 
 #main {
@@ -756,4 +755,28 @@ pre {
 .typingText {
     margin-left: 1em;
     padding-top: 0.5em;
+}
+
+#viewPins {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+}
+
+.pinsDiv {
+    background-color: rgb(40, 40, 40, 0.95);
+    position: absolute;
+    right: 13em;
+    border-radius: 0.5em;
+    top: 1em;
+    border: rgba(120, 120, 120, 0.5) solid 1px;
+    padding: 0.5em;
+    padding-top: 0.75em;
+    width: 20em;
+}
+
+.pinsTitle {
+    margin: 0.33em 0.75em;
+    font-size: 1.25em;
 }
