@@ -452,8 +452,8 @@ async function buildMessage(msg, group, old = false) {
         input.addEventListener("keydown", (e) => {
             if (e.key == "Enter") {
                 let valid = true;
-                let val = input.value;
-                if (val.length > 1 || val == "x") {
+                let val = input.value.trim();
+                if (val.length > 2 || val == "x") {
                     if (val.startsWith(":")) {
                         val = shortcodeToEmoji[val];
                         if (!val) valid = false;
