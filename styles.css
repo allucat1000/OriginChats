@@ -752,3 +752,8 @@ pre {
     margin-right: 0.25em;
     cursor: pointer;
 }
+
+.typingText {
+    margin-left: 1em;
+    padding-top: 0.5em;
+}

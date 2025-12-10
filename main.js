@@ -22,7 +22,8 @@ if (Object.keys(config).length === 0) {
     localStorage.setItem("config", JSON.stringify(config));
 }
 
-let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData;
+let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData, lastTypePacket, typingCleanup;
+let typing = [];
 const chatInput = document.getElementById("chatInput");
 let replying = {};
 let updatedMsgs = {};
@@ -946,6 +947,67 @@ function initFuncs() {
                 }
                 break;
 
+            case "typing":
+                function formatTyping(list) {
+                    if (list.length === 1)
+                        return `${list[0].u} is typing...`;
+
+                    if (list.length < 5) {
+                        return list.map(o => o.u)
+                            .join(", ")
+                            .replace(/, ([^,]*)$/, " and $1")
+                            + " are typing...";
+                    }
+
+                    return "Multiple people are typing...";
+                }
+
+                if (data?.channel !== currentChannel)
+                    return;
+
+                const idx = typing.findIndex(o => o.u === data.user);
+
+                if (idx !== -1) {
+                    typing[idx].t = Date.now();
+                } else {
+                    typing.push({ u: data.user, t: Date.now() });
+                }
+
+                const typingDiv = document.querySelector("#typingIndicator");
+                typingDiv.innerHTML = "";
+
+                if (typing.length > 0) {
+                    const p = document.createElement("p");
+                    p.classList.add("typingText");
+                    p.textContent = formatTyping(typing);
+                    typingDiv.append(p);
+                }
+
+                if (!typingCleanup) {
+                    typingCleanup = setInterval(() => {
+                        const now = Date.now();
+                        let changed = false;
+
+                        for (let i = typing.length - 1; i >= 0; i--) {
+                            if (typing[i].t + 7000 < now) {
+                                typing.splice(i, 1);
+                                changed = true;
+                            }
+                        }
+
+                        if (changed) {
+                            typingDiv.innerHTML = "";
+                            if (typing.length > 0) {
+                                const p = document.createElement("p");
+                                p.classList.add("typingText");
+                                p.textContent = formatTyping(typing);
+                                typingDiv.append(p);
+                            }
+                        }
+                    }, 500);
+                }
+                break;
+
             case "rate_limit":
                 ratelimit.active = true;
                 ratelimit.type = data?.reason?.includes("timeout") ? "timeout" : "ratelimit";
@@ -1226,6 +1288,10 @@ async function initUI() {
     })
 
     function chatInputUpdate() {
+        if (!lastTypePacket || lastTypePacket + 5000 < Date.now()) {
+            lastTypePacket = Date.now();
+            ws.send(`{"cmd":"typing", "channel":"${currentChannel}"}`)
+        }
         chatInput.value = replaceShortcodes(chatInput.value);
 
         chatInput.style.height = 'auto';
