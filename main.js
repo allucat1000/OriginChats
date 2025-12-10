@@ -1,7 +1,7 @@
 import { parseMarkdown, checkPermissions, getImage, getPfp, replaceShortcodes, notif } from "./helpers.js";
 import { openSettings, closeSettings, settingsOpen } from "./settings.js";
 
-export { mainDiv, userData, shortCodes, currentPermissions, config, messageArea };
+export { mainDiv, userData, shortCodes, currentPermissions, config, messageArea, channels };
 
 const mac = navigator.platform.toUpperCase().includes("MAC");
 if (!mac) document.body.style.backgroundColor = "rgb(0, 0, 0, 0.3)";
@@ -98,8 +98,13 @@ async function previewProfile(name) {
             profilePreviewDiv = document.createElement("div");
             profilePreviewDiv.classList.add("profilePreview");
             const pfp = document.createElement("img");
+            const nameDiv = document.createElement("div");
+            nameDiv.classList.add("profilePreviewNameDiv");
             const username = document.createElement("p");
             const bioText = document.createElement("p");
+            const pronouns = document.createElement("p");
+            pronouns.classList.add("profilePreviewPronouns");
+            pronouns.textContent = data.pronouns;
             bioText.classList.add("profilePreviewBioTitle");
             bioText.textContent = "Bio";
             username.classList.add("profileUsername");
@@ -113,7 +118,8 @@ async function previewProfile(name) {
             bio.textContent = data.bio;
             username.textContent = data.username;
             userDiv.classList.add("profileUserDiv");
-            userDiv.append(pfp, username);
+            nameDiv.append(username, pronouns)
+            userDiv.append(pfp, nameDiv);
             profilePreviewDiv.append(userDiv, bioSplitter, bioText, bio);
             previewBg = document.createElement("div");
             previewBg.classList.add("profileBg");
@@ -722,7 +728,7 @@ async function checkRatelimit(input) {
         const placeholder = input.placeholder;
         input.disabled = true;
         while (ratelimit.ends > Date.now()) {
-
+            input.value = "";
             if (ratelimit.type === "ratelimit")
                 input.placeholder = `You have been ratelimited! You cannot send a message for ${Math.round((ratelimit.ends - Date.now()) / 1000)} seconds`;
             else if (ratelimit.type === "timeout")
@@ -824,19 +830,10 @@ function initFuncs() {
                     userColors[name] = user.color;
                 }
                 break;
-            case "user_timeout":
-                if (data?.user === userData?.username) {
-                    ratelimit.active = true;
-                    ratelimit.type = "timeout";
-                    ratelimit.length = data.timeout * 1000;
-                    ratelimit.ends = Date.now() + ratelimit.length;
-                    checkRatelimit(chatInput);
-                }
-                break;
 
             case "rate_limit":
                 ratelimit.active = true;
-                ratelimit.type = "ratelimit";
+                ratelimit.type = data?.reason?.includes("timeout") ? "timeout" : "ratelimit";
                 ratelimit.length = data.length;
                 ratelimit.ends = Date.now() + ratelimit.length;
                 checkRatelimit(chatInput);

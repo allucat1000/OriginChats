@@ -683,3 +683,12 @@ pre {
     color: white;
     margin: 0.25em;
 }
+
+.profilePreviewNameDiv {
+    display: flex;
+    align-items: center;
+}
+
+.profilePreviewPronouns {
+    color: #b1b1b1;
+}

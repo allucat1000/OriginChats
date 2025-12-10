@@ -1,5 +1,5 @@
 export { escapeHTML, parseMarkdown, checkPermissions, getImage, getPfp, replaceShortcodes, notif };
-import { userData, currentPermissions, shortCodes, mainDiv, messageArea } from "./main.js";
+import { userData, currentPermissions, shortCodes, messageArea, channels } from "./main.js";
 
 function escapeHTML(str) {
     const div = document.createElement('div');
@@ -76,7 +76,12 @@ function parseMarkdown(text) {
         });
 
         line = line.replace(/#([\w-]+)/g, (m, channel) => {
-            return `<span class="mention" onclick="openChannel('${channel}')">#${channel}</span>`;
+            const ch = channels.find(c => c?.name === channel);
+            if (ch) {
+                return `<span class="mention" onclick="openChannel('${channel}')">#${channel}</span>`;
+            }
+            return m;
+            
         });
 
         returned.push(line);
