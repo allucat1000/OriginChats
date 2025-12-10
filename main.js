@@ -25,7 +25,7 @@ if (Object.keys(config).length === 0) {
 let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData, lastTypePacket, typingCleanup;
 let typing = [];
 const chatInput = document.getElementById("chatInput");
-let replying = {};
+let messageHandling = {};
 let updatedMsgs = {};
 let ratelimit = {};
 let messageScroll = 0;
@@ -419,10 +419,24 @@ async function buildMessage(msg, group, old = false) {
     replyMessage.classList.add("messageControlMenuButton");
     replyMessage.classList.add("messageReplyButton");
     replyMessage.onclick = () => {
-        replying = { id: msg.id, user: msg.user, curInputPlaceholder: chatInput.placeholder }
+        messageHandling = { type: "reply", id: msg.id, user: msg.user, curInputPlaceholder: chatInput.placeholder }
         if (!ratelimit.active) {
             chatInput.disabled = false;
             chatInput.placeholder = `Reply to ${msg.user}'s message...`;
+        }
+    }
+    const editMessage = document.createElement("button");
+    editMessage.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pencil-icon lucide-pencil"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`;
+    editMessage.classList.add("messageControlMenuButton");
+    editMessage.classList.add("messageEditButton");
+    editMessage.onclick = () => {
+        messageHandling = { type: "edit", id: msg.id, curInputPlaceholder: chatInput.placeholder }
+        if (!ratelimit.active) {
+            chatInput.disabled = false;
+            chatInput.placeholder = `Edit your message...`;
+            const updated = updatedMsgs[msg.id];
+            chatInput.value = updated ? updated : msg.content;
+            requestAnimationFrame(() => chatInputUpdate());
         }
     }
     const reactMessage = document.createElement("button");
@@ -464,7 +478,7 @@ async function buildMessage(msg, group, old = false) {
         hoverMenu.prepend(input);
         input.focus();
     }
-    hoverMenu.append(reactMessage, replyMessage, deleteMessage);
+    hoverMenu.append(reactMessage, editMessage, replyMessage, deleteMessage);
     
     text.innerHTML = parseMarkdown(msg.content);
     div.classList.add("message");
@@ -819,6 +833,7 @@ async function deleteMessage(data) {
 async function editMessage(data) {
     if (data.channel !== currentChannel) return;
     const el = messageStore[data.id].el;
+    updatedMsgs[data.id] = data.content;
     if (!el) throw new Error(`Unable to edit message with ID '${data.id}'`);
     const text = el.querySelector(".messageContent");
     if (text) text.innerHTML = parseMarkdown(data.content);
@@ -1272,10 +1287,15 @@ async function initUI() {
         if (!currentChannel) return;
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            if (replying?.id) {
-                ws.send(`{"cmd":"message_new", "channel":"${currentChannel}", "content":${JSON.stringify(chatInput.value)}, "reply_to":"${replying.id}"}`);
-                chatInput.placeholder = replying.curInputPlaceholder;
-                replying = {};
+            if (messageHandling?.id) {
+                if (chatInput.value.trim().length > 0) {
+                    if (messageHandling.type === "reply")
+                        ws.send(`{"cmd":"message_new", "channel":"${currentChannel}", "content":${JSON.stringify(chatInput.value)}, "reply_to":"${messageHandling.id}"}`);
+                    else if (messageHandling.type === "edit")
+                        ws.send(`{"cmd":"message_edit", "channel":"${currentChannel}", "content":${JSON.stringify(chatInput.value)}, "id":"${messageHandling.id}"}`);
+                }
+                chatInput.placeholder = messageHandling.curInputPlaceholder;
+                messageHandling = {};
             } else
                 ws.send(`{"cmd":"message_new", "channel":"${currentChannel}", "content":${JSON.stringify(chatInput.value)}}`);
             chatInput.value = "";
@@ -1298,6 +1318,8 @@ async function initUI() {
 
         chatInput.style.height = Math.min(chatInput.scrollHeight - 4, 100) + "px";
     }
+
+    window.chatInputUpdate = chatInputUpdate;
     
     let lastScrolled = 0;
 
