@@ -732,3 +732,23 @@ pre {
     gap: 0.5em;
     cursor: pointer;
 }
+
+.messageReplyPreviewDiv {
+    display: flex;
+    align-items: center;
+    gap: 0.25em;
+    margin-bottom: 0.66em;
+}
+
+.messageReplyPreviewPfp {
+    border-radius: 50%;
+    width: 16px;
+    margin-left: 2.66em;
+    cursor: pointer;
+}
+
+.messageReplyPreviewUsername {
+    opacity: 0.7;
+    margin-right: 0.25em;
+    cursor: pointer;
+}

@@ -22,8 +22,10 @@ if (Object.keys(config).length === 0) {
     localStorage.setItem("config", JSON.stringify(config));
 }
 
-let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList;
+let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData;
 const chatInput = document.getElementById("chatInput");
+let replying = {};
+let updatedMsgs = {};
 let ratelimit = {};
 let messageScroll = 0;
 let userColors = {};
@@ -391,7 +393,7 @@ async function generateEmbed(url) {
     return container;
 }
 
-function buildMessage(msg, group, old = false) {
+async function buildMessage(msg, group, old = false) {
     const div = document.createElement("div");
     const username = document.createElement("p");
     const userPfp = document.createElement("img");
@@ -411,6 +413,17 @@ function buildMessage(msg, group, old = false) {
     deleteMessage.classList.add("messageDeleteButton");
     if (msg.user !== userData.username) deleteMessage.style.display = checkPermissions("delete") ? "block" : "none";
     deleteMessage.onclick = () => ws.send(`{"cmd":"message_delete", "channel":"${currentChannel}", "id":"${msg.id}"}`);
+    const replyMessage = document.createElement("button");
+    replyMessage.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-reply-icon lucide-reply"><path d="M20 18v-2a4 4 0 0 0-4-4H4"/><path d="m9 17-5-5 5-5"/></svg>`;
+    replyMessage.classList.add("messageControlMenuButton");
+    replyMessage.classList.add("messageReplyButton");
+    replyMessage.onclick = () => {
+        replying = { id: msg.id, user: msg.user, curInputPlaceholder: chatInput.placeholder }
+        if (!ratelimit.active) {
+            chatInput.disabled = false;
+            chatInput.placeholder = `Reply to ${msg.user}'s message...`;
+        }
+    }
     const reactMessage = document.createElement("button");
     reactMessage.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-smile-plus-icon lucide-smile-plus"><path d="M22 11v1a10 10 0 1 1-9-10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/><path d="M16 5h6"/><path d="M19 2v6"/></svg>`;
     reactMessage.classList.add("messageControlMenuButton");
@@ -450,7 +463,7 @@ function buildMessage(msg, group, old = false) {
         hoverMenu.prepend(input);
         input.focus();
     }
-    hoverMenu.append(reactMessage, deleteMessage);
+    hoverMenu.append(reactMessage, replyMessage, deleteMessage);
     
     text.innerHTML = parseMarkdown(msg.content);
     div.classList.add("message");
@@ -474,10 +487,47 @@ function buildMessage(msg, group, old = false) {
     embeds.classList.add("messageEmbeds");
     div.append(embeds);
 
+    let replyDiv = document.createElement("div");
+    replyDiv.classList.add("messageReplyPreviewDiv");
+
+    if (msg.reply_to) {
+        ws.send(`{"cmd":"message_get","channel":"${currentChannel}","id":"${msg.reply_to.id}"}`);
+        while (!tempData) {
+            await new Promise((r) => setTimeout(r, 1));
+        }
+        const img = document.createElement("img");
+        const un = tempData.user
+        getPfp(un).then((d) => img.src = d);
+        img.onclick = () => previewProfile(un);
+        img.classList.add("messageReplyPreviewPfp");
+
+        const user = document.createElement("p");
+        user.onclick = () => previewProfile(un);
+        user.textContent = tempData.user;
+        if (userColors[tempData.user])
+            user.style.color = userColors[tempData.user];
+        
+        user.classList.add("messageReplyPreviewUsername");
+        const text = document.createElement("p");
+        const c = tempData.content;
+        if (c.length > 60)
+            text.textContent = c.slice(0, 60) + "...";
+        else
+            text.textContent = c;
+
+        text.classList.add("messageReplyPreviewText");
+        replyDiv.append(img, user, text);
+
+        tempData = null;
+    }
+
     if (group) {
         div.append(hoverMenu, text, embeds, emojis);
     } else {
-        div.append(hoverMenu, userDiv, text, embeds, emojis);
+        if (msg.reply_to)
+            div.append(hoverMenu, replyDiv, userDiv, text, embeds, emojis);
+        else
+            div.append(hoverMenu, userDiv, text, embeds, emojis);
     }
 
     const id = nextMessageCount++;
@@ -577,10 +627,10 @@ async function newMsg(msg, old = false, f) {
     let obj
     
     let appendSplit = false;
-    if ((old ? messageList[nextMessageCount + 1]?.user == msg.user : lastUser == msg.user) && (checkDates(old ? messageList[nextMessageCount + 1]?.timestamp : lastDate, msg.timestamp)))
-        obj = buildMessage(msg, true, old);
+    if ((old ? messageList[nextMessageCount + 1]?.user == msg.user : lastUser == msg.user) && (checkDates(old ? messageList[nextMessageCount + 1]?.timestamp : lastDate, msg.timestamp)) && !msg.reply_to)
+        obj = await buildMessage(msg, true, old);
     else {
-        obj = buildMessage(msg, false, old);
+        obj = await buildMessage(msg, false, old);
         appendSplit = true;
     }
     
@@ -882,6 +932,10 @@ function initFuncs() {
                     ws.send(`{"cmd":"users_online"}`);
                 break;
 
+            case "message_get":
+                tempData = { channel: data.channel, ...data.message }
+                break;
+
             case "users_list":
                 userList = data.users;
                 userColors = {};
@@ -1156,7 +1210,12 @@ async function initUI() {
         if (!currentChannel) return;
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            ws.send(`{"cmd":"message_new", "channel":"${currentChannel}", "content":${JSON.stringify(chatInput.value)}}`);
+            if (replying?.id) {
+                ws.send(`{"cmd":"message_new", "channel":"${currentChannel}", "content":${JSON.stringify(chatInput.value)}, "reply_to":"${replying.id}"}`);
+                chatInput.placeholder = replying.curInputPlaceholder;
+                replying = {};
+            } else
+                ws.send(`{"cmd":"message_new", "channel":"${currentChannel}", "content":${JSON.stringify(chatInput.value)}}`);
             chatInput.value = "";
             chatInputUpdate();
         } else if (e.key === "Enter") {
