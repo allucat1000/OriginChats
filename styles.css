@@ -660,3 +660,26 @@ pre {
     margin: 1em;
     text-align: center;
 }
+
+.notificationDiv {
+    position: absolute;
+    bottom: 5em;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.5em 1em;
+    border-radius: 2em;
+    background-color: rgb(30, 30, 30, 0.9);
+    transition: opacity ease-in-out 0.25s;
+    border: rgba(120, 120, 120, 0.4) solid 1px;
+    display: flex;
+    gap: 0.5em;
+}
+
+.notificationFade {
+    opacity: 0;
+}
+
+.notificationText {
+    color: white;
+    margin: 0.25em;
+}

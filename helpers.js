@@ -1,10 +1,27 @@
-export { escapeHTML, parseMarkdown, checkPermissions, getImage, getPfp, replaceShortcodes };
-import { userData, currentPermissions, shortCodes } from "./main.js";
+export { escapeHTML, parseMarkdown, checkPermissions, getImage, getPfp, replaceShortcodes, notif };
+import { userData, currentPermissions, shortCodes, mainDiv, messageArea } from "./main.js";
 
 function escapeHTML(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
+}
+
+function notif(content, icon) {
+    const div = document.createElement("div");
+    div.classList.add("notificationDiv", "notificationFade");
+    const icn = document.createElement("img");
+    icn.src = "data:image/svg+xml," + encodeURIComponent(icon);
+    const p = document.createElement("p");
+    p.textContent = content;
+    p.classList.add("notificationText");
+    div.append(icn, p);
+    messageArea.append(div);
+    requestAnimationFrame(() => div.classList.remove("notificationFade"));
+    setTimeout(() => {
+        div.classList.add("notificationFade");
+        setTimeout(() => div.remove(), 1000);
+    }, 3000)
 }
 
 function parseMarkdown(text) {

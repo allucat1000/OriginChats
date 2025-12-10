@@ -1,7 +1,7 @@
-import { parseMarkdown, checkPermissions, getImage, getPfp, replaceShortcodes } from "./helpers.js";
+import { parseMarkdown, checkPermissions, getImage, getPfp, replaceShortcodes, notif } from "./helpers.js";
 import { openSettings, closeSettings, settingsOpen } from "./settings.js";
 
-export { mainDiv, userData, shortCodes, currentPermissions, config };
+export { mainDiv, userData, shortCodes, currentPermissions, config, messageArea };
 
 const mac = navigator.platform.toUpperCase().includes("MAC");
 if (!mac) document.body.style.backgroundColor = "rgb(0, 0, 0, 0.3)";
@@ -493,13 +493,15 @@ function buildMessage(msg, group, old = false) {
             placeholder.replaceWith(embedEl);
             const imgs = embedEl.querySelectorAll ? embedEl.querySelectorAll("img") : [];
             const imgLoadPromises = [...imgs].map(img => new Promise(res => {
-            if (img.complete) return res();
-            img.onload = img.onerror = () => res();
+                if (img.complete) return res();
+                img.onload = img.onerror = () => res();
             }));
             await Promise.all(imgLoadPromises);
         } else {
             placeholder.remove();
         }
+        if (embedEl && embedEl.classList.contains("embedBox") && embedEl.children.length === 0)
+            embedEl.remove();
         })();
         embedPromises.push(p);
     }
@@ -795,9 +797,11 @@ function initFuncs() {
                 editMessage(data);
                 break;
             case "error":
-                if (data?.val === "Access denied to this channel") 
+                if (data?.val === "Access denied to this channel") {
                     messages = "NotFound";
-                
+                    return;
+                }
+                notif(data.val, `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-triangle-alert-icon lucide-triangle-alert"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`);
                 console.error(data.val);
                 break;
             case "user_leave":
@@ -1031,7 +1035,10 @@ async function initUI() {
             errorIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-x-icon lucide-circle-x"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`;
             errorIcon.classList.add("connectErrorIcon")
             messageArea.append(error, errorIcon);
-            chatInput.disabled = true;
+            if (!ratelimit.active) {
+                chatInput.disabled = "true";
+                chatInput.placeholder = `Open a channel to send messages`;
+            }
             messages = null;
             loadingMsgs = false;
             return;
@@ -1053,6 +1060,10 @@ async function initUI() {
     async function openChannel(name, perms) {
         messageArea.innerHTML = "";
         messageScroll = 0;
+        lastUser = null;
+        lastDate = null;
+        nextMessageCount = 0;
+        messageList = [];
         messageStore = {};
         const channelDiv = channelSidebar.querySelector("#channel-" + name);
         if (channelDiv) channelDiv.textContent = "#" + name;
