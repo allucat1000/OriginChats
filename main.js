@@ -697,11 +697,10 @@ function renderUserlist(list) {
         const div = document.createElement("div");
         div.classList.add("userListItem");
         const icon = document.createElement("img");
-        icon.onclick = () => previewProfile(u.username);
+        div.onclick = () => previewProfile(u.username);
         icon.classList.add("userListIcon");
         getPfp(u.username).then((d) => icon.src = d);
         const name = document.createElement("p");
-        name.onclick = () => previewProfile(u.username);
         name.classList.add("userListName");
         name.textContent = u.username;
         div.append(icon, name);
