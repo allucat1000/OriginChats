@@ -58,6 +58,10 @@ function parseMarkdown(text) {
             return `<span class="mention" onclick="previewProfile('${username}')">@${username}</span>`;
         });
 
+        line = line.replace(/#([\w-]+)/g, (m, channel) => {
+            return `<span class="mention" onclick="openChannel('${channel}')">#${channel}</span>`;
+        });
+
         returned.push(line);
     }
 

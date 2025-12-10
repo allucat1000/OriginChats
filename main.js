@@ -23,6 +23,8 @@ if (Object.keys(config).length === 0) {
 }
 
 let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList;
+const chatInput = document.getElementById("chatInput");
+let ratelimit = {};
 let messageScroll = 0;
 let userColors = {};
 let userList = {};
@@ -713,6 +715,27 @@ async function editMessage(data) {
     if (text) text.innerHTML = parseMarkdown(data.content);
 }
 
+async function checkRatelimit(input) {
+    if (ratelimit.active) {
+        const placeholder = input.placeholder;
+        input.disabled = true;
+        while (ratelimit.ends > Date.now()) {
+
+            if (ratelimit.type === "ratelimit")
+                input.placeholder = `You have been ratelimited! You cannot send a message for ${Math.round((ratelimit.ends - Date.now()) / 1000)} seconds`;
+            else if (ratelimit.type === "timeout")
+                input.placeholder = `You are timed out! You cannot send a message for ${Math.round((ratelimit.ends - Date.now()) / 1000)} seconds`;
+            await new Promise((r) => setTimeout(r, 1000));
+        }
+        setTimeout(() => {
+            ratelimit.active = false;
+            input.value = "";
+            input.disabled = false;
+            input.placeholder = placeholder;
+        }, ratelimit.length)
+    }
+}
+
 function initFuncs() {
     ws.onmessage = async(msg) => {
         let data = msg.data;
@@ -772,7 +795,21 @@ function initFuncs() {
                 editMessage(data);
                 break;
             case "error":
+                if (data?.val === "Access denied to this channel") 
+                    messages = "NotFound";
+                
                 console.error(data.val);
+                break;
+            case "user_leave":
+                if (data?.user === userData?.username) {
+                    localStorage.setItem("openServer", "wss://chats.mistium.com");
+                }
+                break;
+
+            case "user_ban":
+                if (data?.user === userData?.username) {
+                    localStorage.setItem("openServer", "wss://chats.mistium.com");
+                }
                 break;
             case "users_list":
                 userList = data.users;
@@ -783,6 +820,24 @@ function initFuncs() {
                     userColors[name] = user.color;
                 }
                 break;
+            case "user_timeout":
+                if (data?.user === userData?.username) {
+                    ratelimit.active = true;
+                    ratelimit.type = "timeout";
+                    ratelimit.length = data.timeout * 1000;
+                    ratelimit.ends = Date.now() + ratelimit.length;
+                    checkRatelimit(chatInput);
+                }
+                break;
+
+            case "rate_limit":
+                ratelimit.active = true;
+                ratelimit.type = "ratelimit";
+                ratelimit.length = data.length;
+                ratelimit.ends = Date.now() + ratelimit.length;
+                checkRatelimit(chatInput);
+                break;
+
             default:
                 console.warn(`Unknown command sent by server: '${cmd}'`);
                 break;
@@ -900,8 +955,33 @@ function toggleGifPicker() {
 
 
 async function initUI() {
-    const chatInput = document.getElementById("chatInput");
     const channelSidebar = document.getElementById("channelSidebar");
+
+    const serverInfoEl = document.querySelector("#serverInfo");
+    const nameDiv = document.createElement("div");
+    nameDiv.classList.add("serverInfoNameDiv");
+
+    const name = document.createElement("h2");
+    name.classList.add("serverInfoName");
+
+    const icon = document.createElement("img");
+    icon.classList.add("serverInfoIcon");
+
+    const leaveButton = document.createElement("button");
+    leaveButton.classList.add("serverLeaveButton");
+    leaveButton.textContent = "Leave the server";
+    leaveButton.onclick = () => {
+        ws.send(`{"cmd":"user_leave"}`);
+        leaveButton.disabled = "true";
+    }
+
+    name.textContent = serverInfo.name;
+    icon.src = serverInfo.icon;
+
+    nameDiv.append(icon, name);
+    serverInfoEl.append(nameDiv, leaveButton);
+
+
     ws.send('{"cmd":"channels_get"}');
     while (!channels) {
         await new Promise((r) => setTimeout(r, 50));
@@ -943,13 +1023,26 @@ async function initUI() {
         while (!messages) {
             await new Promise((r) => setTimeout(r, 50));
         }
+        if (messages === "NotFound") {
+            const error = document.createElement("h2");
+            const errorIcon = document.createElement("div");
+            error.classList.add("unknownChannelError");
+            error.textContent = "Channel not found";
+            errorIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-x-icon lucide-circle-x"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`;
+            errorIcon.classList.add("connectErrorIcon")
+            messageArea.append(error, errorIcon);
+            chatInput.disabled = true;
+            messages = null;
+            loadingMsgs = false;
+            return;
+        }
         messageList = messages.reverse();
         messages = null;
         lastUser = messageList[0]?.user;
         const f = document.createDocumentFragment();
         for (let i = 0; i < messageList.length; i++) {
             const msg = messageList[i];
-            await newMsg(msg, true, f);
+            await newMsg({ ...msg, channel: name }, true, f);
             if (start === 0)
                 messageArea.scrollTop = messageArea.scrollHeight + 100;
         }
@@ -964,13 +1057,16 @@ async function initUI() {
         const channelDiv = channelSidebar.querySelector("#channel-" + name);
         if (channelDiv) channelDiv.textContent = "#" + name;
         currentChannel = name;
-        chatInput.disabled = "";
-        chatInput.placeholder = `Send a message in #${name}`;
+        if (!ratelimit.active) {
+            chatInput.disabled = "";
+            chatInput.placeholder = `Send a message in #${name}`;
+        }
         title.textContent = `#${name} — ${serverInfo.name} — Originchats`;
         currentPermissions = perms;
         await loadMessages(messageScroll, name);
         messageArea.scrollTop = messageArea.scrollHeight + 10000;
     }
+    window.openChannel = openChannel;
 
     if (!channelSidebar) return;
 

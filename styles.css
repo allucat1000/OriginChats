@@ -68,6 +68,7 @@ body {
     margin: 0;
     padding: 0.5em;
     overflow: scroll;
+    background: rgba(0, 0, 0, 0.3);
 }
 
 #chatArea {
@@ -168,14 +169,15 @@ body {
 
 .channel {
     width: calc(100% - 1em);
-    background-color: rgb(75, 75, 75, 0.4);
+    background-color: rgba(75, 75, 75, 0.2);
     padding: 0.5em;
     border-radius: 0.5em;
-    border-style: solid;
-    border-width: thin;
-    border-color: rgb(120, 120, 120, 0.5);
     margin-bottom: 0.5em;
     cursor: pointer;
+}
+
+.channel:hover {
+    background-color: rgba(75, 75, 75, 0.5);
 }
 
 .channelSeparator {
@@ -621,4 +623,40 @@ pre {
 .settingsMenuSidebarSplitter {
     margin: 0.25em;
     border-bottom: rgb(120, 120, 120, 0.5) solid 1px;
+}
+
+#serverInfo {
+    padding: 0.5em;
+    margin-bottom: 0.5em;
+}
+
+.serverInfoNameDiv {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.serverInfoName {
+    font-size: 1.15em;
+}
+
+.serverInfoIcon {
+    width: 40px;
+    border-radius: 0.5em;
+}
+
+.serverLeaveButton {
+    margin-top: 1em;
+    padding: 0.5em;
+    width: 100%;
+    background-color: rgba(70, 70, 70, 0.3);
+    color: white;
+    border: rgba(120, 120, 120, 0.3) solid 1px;
+    border-radius: 0.5em;
+    cursor: pointer;
+}
+
+.unknownChannelError {
+    margin: 1em;
+    text-align: center;
 }
