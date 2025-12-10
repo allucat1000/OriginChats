@@ -1,7 +1,7 @@
 import { parseMarkdown, checkPermissions, getImage, getPfp, replaceShortcodes, notif } from "./helpers.js";
 import { openSettings, closeSettings, settingsOpen } from "./settings.js";
 
-export { mainDiv, userData, shortCodes, currentPermissions, config, messageArea, channels };
+export { mainDiv, userData, shortCodes, currentPermissions, config, messageArea, channels, userList };
 
 const mac = navigator.platform.toUpperCase().includes("MAC");
 if (!mac) document.body.style.backgroundColor = "rgb(0, 0, 0, 0.3)";
@@ -579,8 +579,10 @@ async function newMsg(msg, old = false, f) {
     let appendSplit = false;
     if ((old ? messageList[nextMessageCount + 1]?.user == msg.user : lastUser == msg.user) && (checkDates(old ? messageList[nextMessageCount + 1]?.timestamp : lastDate, msg.timestamp)))
         obj = buildMessage(msg, true, old);
-    else
+    else {
         obj = buildMessage(msg, false, old);
+        appendSplit = true;
+    }
     
     lastDate = msg.timestamp;
     lastUser = msg.user;

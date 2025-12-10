@@ -1,5 +1,5 @@
 export { escapeHTML, parseMarkdown, checkPermissions, getImage, getPfp, replaceShortcodes, notif };
-import { userData, currentPermissions, shortCodes, messageArea, channels } from "./main.js";
+import { userData, currentPermissions, shortCodes, messageArea, channels, userList } from "./main.js";
 
 function escapeHTML(str) {
     const div = document.createElement('div');
@@ -72,14 +72,17 @@ function parseMarkdown(text) {
         });
 
         line = line.replace(/@([\w-]+)/g, (m, username) => {
-            return `<span class="mention" onclick="previewProfile('${username}')">@${username}</span>`;
+            const vU = userList.find(u => line.includes(u?.username));
+            if (vU)
+                return `<span class="mention" onclick="previewProfile('${username}')">@${username}</span>`;
+            return m;
         });
 
         line = line.replace(/#([\w-]+)/g, (m, channel) => {
-            const ch = channels.find(c => c?.name === channel);
-            if (ch) {
+            const vC = channels.find(c => c?.name === channel);
+            if (vC) 
                 return `<span class="mention" onclick="openChannel('${channel}')">#${channel}</span>`;
-            }
+            
             return m;
             
         });
