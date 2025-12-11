@@ -1,5 +1,8 @@
 name: Electron Builds
 
+env:
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  
 on:
   push:
     tags:
