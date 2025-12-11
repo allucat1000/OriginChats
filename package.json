@@ -2,8 +2,10 @@
   "name": "originchats",
   "productName": "originchats",
   "version": "1.0.0",
-  "author":"Allucat1000",
-  "email":"allucat1000@gmail.com",
+  "author": {
+    "name": "Allucat1000",
+    "email": "allucat1000@gmail.com"
+  },
   "description": "An Originchats client",
   "main": "renderer.js",
   "scripts": {
