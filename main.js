@@ -721,11 +721,10 @@ function renderUserlist(list) {
         const div = document.createElement("div");
         div.classList.add("userListItemOffline");
         const icon = document.createElement("img");
-        icon.onclick = () => previewProfile(u.username);
+        div.onclick = () => previewProfile(u.username);
         icon.classList.add("userListIcon");
         getPfp(u.username).then((d) => icon.src = d);
         const name = document.createElement("p");
-        name.onclick = () => previewProfile(u.username);
         name.classList.add("userListName");
         name.textContent = u.username;
         div.append(icon, name);
@@ -1175,6 +1174,47 @@ function toggleGifPicker() {
     picker.append(input, results);
 }
 
+let loadingMsgs = false;
+
+async function loadMessages(start, name) {
+    console.log(loadingMsgs);
+    if (loadingMsgs) return;
+    loadingMsgs = true;
+    ws.send(`{"cmd":"messages_get", "channel":"${name}", "start":${start}, "limit":50}`);
+    while (!messages) {
+        await new Promise((r) => setTimeout(r, 50));
+    }
+    if (messages === "NotFound") {
+        const error = document.createElement("h2");
+        const errorIcon = document.createElement("div");
+        error.classList.add("unknownChannelError");
+        error.textContent = "Channel not found";
+        currentChannel = null;
+        errorIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-x-icon lucide-circle-x"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`;
+        errorIcon.classList.add("connectErrorIcon")
+        messageArea.append(error, errorIcon);
+        if (!ratelimit.active) {
+            chatInput.disabled = "true";
+            chatInput.placeholder = `Open a channel to send messages`;
+        }
+        messages = null;
+        loadingMsgs = false;
+        return;
+    }
+    messageList = messages.reverse();
+    messages = null;
+    lastUser = messageList[0]?.user;
+    const f = document.createDocumentFragment();
+    for (let i = 0; i < messageList.length; i++) {
+        const msg = messageList[i];
+        await newMsg({ ...msg, channel: name }, true, f);
+        if (start === 0)
+            messageArea.scrollTop = messageArea.scrollHeight + 100;
+    }
+    messageArea.prepend(f);
+    loadingMsgs = false;
+}
+
 
 async function initUI() {
     const channelSidebar = document.getElementById("channelSidebar");
@@ -1280,46 +1320,6 @@ async function initUI() {
     }
 
 
-    let loadingMsgs = false;
-
-    async function loadMessages(start, name) {
-        if (loadingMsgs) return;
-        loadingMsgs = true;
-        ws.send(`{"cmd":"messages_get", "channel":"${name}", "start":${start}, "limit":50}`);
-        while (!messages) {
-            await new Promise((r) => setTimeout(r, 50));
-        }
-        if (messages === "NotFound") {
-            const error = document.createElement("h2");
-            const errorIcon = document.createElement("div");
-            error.classList.add("unknownChannelError");
-            error.textContent = "Channel not found";
-            currentChannel = null;
-            errorIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-circle-x-icon lucide-circle-x"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`;
-            errorIcon.classList.add("connectErrorIcon")
-            messageArea.append(error, errorIcon);
-            if (!ratelimit.active) {
-                chatInput.disabled = "true";
-                chatInput.placeholder = `Open a channel to send messages`;
-            }
-            messages = null;
-            loadingMsgs = false;
-            return;
-        }
-        messageList = messages.reverse();
-        messages = null;
-        lastUser = messageList[0]?.user;
-        const f = document.createDocumentFragment();
-        for (let i = 0; i < messageList.length; i++) {
-            const msg = messageList[i];
-            await newMsg({ ...msg, channel: name }, true, f);
-            if (start === 0)
-                messageArea.scrollTop = messageArea.scrollHeight + 100;
-        }
-        messageArea.prepend(f);
-        loadingMsgs = false;
-    }
-
     async function openChannel(name, perms) {
         pinButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pin-icon lucide-pin"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>`;
         pinsDiv.remove();
@@ -1396,26 +1396,32 @@ async function initUI() {
     }
 
     window.chatInputUpdate = chatInputUpdate;
-    
-    let lastScrolled = 0;
 
-    messageArea.addEventListener("scroll", () => {
-        if (messageArea.scrollHeight > messageArea.offsetHeight) {
-            if (lastScrolled + 5000 > Date.now()) return;
-            if (messageArea.scrollTop < 10) {
-                messageArea.scrollTop = 500;
-                messageScroll += 50;
-                lastScrolled = Date.now();
-                loadMessages(messageScroll, currentChannel);
-            }
-        }
-    })
+    scrollCheck();
 
 
     chatInput.addEventListener("input", () => {
         chatInputUpdate();
     });
 
+}
+
+let lastScrolled = 0;
+
+async function scrollCheck() {
+    while (true) {
+        if (messageArea.scrollHeight > messageArea.offsetHeight) {
+            if (messageArea.scrollTop < 50) {
+                console.log("h")
+                messageArea.scrollTop = 50;
+                if (lastScrolled + 3000 > Date.now()) continue;
+                messageScroll += 50;
+                lastScrolled = Date.now();
+                loadMessages(messageScroll, currentChannel);
+            }
+        }
+        await new Promise((r) => setTimeout(r, 10))
+    }
 }
 url = localStorage.getItem("openServer") ?? "";
 await connect(url);
