@@ -158,6 +158,10 @@ async function loadCss() {
 loadCss();
 
 async function connect(url) {
+    if (url.length === 0) {
+        serverSelect();
+        return;
+    }
     try {
         ws = new WebSocket(url);
     } catch {
@@ -860,6 +864,28 @@ async function checkRatelimit(input) {
     }
 }
 
+function serverSelect() {
+    const lT = document.querySelector("#connectionText");
+    if (lT) lT.remove();
+    mainDiv.innerHTML = "";
+    mainDiv.style.display = "block";
+    const title = document.createElement("h2");
+    title.classList.add("connectError");
+    title.textContent = "Choose a server URL to open";
+    const openServer = document.createElement("input");
+    openServer.classList.add("connectErrorNewServer");
+    openServer.placeholder = "eg: wss://originchats.example.com";
+    openServer.addEventListener("keydown", (e) => {
+        if (e.key == "Enter") {
+            if (openServer.value) {
+                localStorage.setItem("openServer", openServer.value);
+                window.location.reload();
+            }
+        }
+    })
+    mainDiv.append(title, openServer);
+}
+
 function initFuncs() {
     ws.onmessage = async(msg) => {
         let data = msg.data;
@@ -927,13 +953,13 @@ function initFuncs() {
                 break;
             case "user_leave":
                 if (data?.user === userData?.username) {
-                    localStorage.setItem("openServer", "wss://chats.mistium.com");
+                    localStorage.setItem("openServer", "");
                 }
                 break;
 
             case "user_ban":
                 if (data?.user === userData?.username) {
-                    localStorage.setItem("openServer", "wss://chats.mistium.com");
+                    localStorage.setItem("openServer", "");
                 }
                 break;
 
@@ -1295,6 +1321,9 @@ async function initUI() {
     }
 
     async function openChannel(name, perms) {
+        pinButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pin-icon lucide-pin"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>`;
+        pinsDiv.remove();
+        pinsMenuOpen = false;
         messageArea.innerHTML = "";
         messageScroll = 0;
         lastUser = null;
@@ -1388,5 +1417,5 @@ async function initUI() {
     });
 
 }
-url = localStorage.getItem("openServer") ?? "wss://chats.mistium.com/";
+url = localStorage.getItem("openServer") ?? "";
 await connect(url);

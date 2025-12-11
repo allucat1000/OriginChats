@@ -472,7 +472,7 @@ pre {
 }
 
 .connectErrorNewServer::placeholder {
-    color: white;
+    color: rgb(200, 200, 200);
 }
 
 .serverNavigateMenuBackground {
