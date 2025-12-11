@@ -1,0 +1,77 @@
+name: Electron Builds
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          npm ci
+
+      - name: Build macOS (Intel + ARM)
+        run: |
+          npx electron-builder --mac universal
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macOS-build
+          path: dist/*
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          npm ci
+
+      - name: Build Windows (x64 + arm64)
+        run: |
+          npx electron-builder --win --x64 --arm64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: dist/*
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: |
+          npm ci
+
+      - name: Build Linux (x64 + arm64 + ia32)
+        run: |
+          npx electron-builder --linux AppImage deb snap --x64 --arm64 --ia32
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: dist/*
