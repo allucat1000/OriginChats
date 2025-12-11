@@ -1224,7 +1224,7 @@ async function initUI() {
             pinsMenuOpen = true;
             pinsDiv.innerHTML = `<h2 class="pinsTitle">Pinned messages</h2>`;
             const loading = document.createElement("p");
-            loading.classList.add("pinsTitle");
+            loading.classList.add("pinsSubTitle");
             loading.textContent = "Loading...";
             pinsDiv.append(loading);
             mainDiv.append(pinsDiv);
@@ -1236,6 +1236,12 @@ async function initUI() {
             for (const m of pins) {
                 const e = await buildMessage(m, false, true,);
                 f.prepend(e.el, e.splitEl);
+            }
+            if (pins.length === 0) {
+                const err = document.createElement("p");
+                err.classList.add("pinsSubTitle");
+                err.textContent = "There are no pins in this channel!";
+                pinsDiv.append(err);
             }
             pins = null;
             loading.remove();
