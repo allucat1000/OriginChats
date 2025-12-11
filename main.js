@@ -1177,7 +1177,6 @@ function toggleGifPicker() {
 let loadingMsgs = false;
 
 async function loadMessages(start, name) {
-    console.log(loadingMsgs);
     if (loadingMsgs) return;
     loadingMsgs = true;
     ws.send(`{"cmd":"messages_get", "channel":"${name}", "start":${start}, "limit":50}`);
@@ -1412,9 +1411,8 @@ async function scrollCheck() {
     while (true) {
         if (messageArea.scrollHeight > messageArea.offsetHeight) {
             if (messageArea.scrollTop < 50) {
-                console.log("h")
                 messageArea.scrollTop = 50;
-                if (lastScrolled + 3000 > Date.now()) continue;
+                if (lastScrolled + 1000 > Date.now()) continue;
                 messageScroll += 50;
                 lastScrolled = Date.now();
                 loadMessages(messageScroll, currentChannel);
