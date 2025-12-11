@@ -12,8 +12,8 @@
     "dist": "electron-builder"
   },
   "devDependencies": {
-    "electron-builder": "^26.0.12",
-    "electron": "^33.0.0"
+    "electron": "^33.0.0",
+    "electron-builder": "^26.0.12"
   },
   "dependencies": {
     "electron-squirrel-startup": "^1.0.1"
@@ -38,5 +38,4 @@
       }
     ]
   }
-
 }
