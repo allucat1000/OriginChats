@@ -23,7 +23,7 @@ jobs:
 
       - name: Build macOS (Intel + ARM)
         run: |
-          npx electron-builder --mac universal
+          npx electron-builder --mac --x64 --arm64
 
       - uses: actions/upload-artifact@v4
         with:
@@ -69,7 +69,7 @@ jobs:
 
       - name: Build Linux (x64 + arm64 + ia32)
         run: |
-          npx electron-builder --linux AppImage deb snap --x64 --arm64 --ia32
+          npx electron-builder --linux AppImage deb --x64 --arm64
 
       - uses: actions/upload-artifact@v4
         with:
