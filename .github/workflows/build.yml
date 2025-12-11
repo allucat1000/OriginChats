@@ -1,8 +1,5 @@
 name: Electron Builds
 
-env:
-  GH_TOKEN: ${{ secrets.GH_TOKEN }}
-  
 on:
   push:
     tags:
@@ -12,6 +9,8 @@ on:
 jobs:
   build-macos:
     runs-on: macos-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +34,8 @@ jobs:
 
   build-windows:
     runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -58,6 +59,8 @@ jobs:
 
   build-linux:
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 

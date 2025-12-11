@@ -29,13 +29,24 @@
   },
   "forge": {
     "packagerConfig": {
-      "name": "originchats"
+      "name": "originchats",
+      "icon": "icons/icon" 
     },
     "makers": [
       "@electron-forge/maker-zip",
       "@electron-forge/maker-squirrel",
       "@electron-forge/maker-deb",
       "@electron-forge/maker-rpm"
+    ]
+  },
+  "build": {
+    "appId": "com.allucat1000.originchats",
+    "productName": "OriginChats",
+    "publish": [
+      {
+        "provider": "github",
+        "releaseType": "draft"
+      }
     ]
   }
 }
