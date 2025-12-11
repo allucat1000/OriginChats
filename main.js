@@ -271,7 +271,7 @@ let nextMessageCount = (() => {
 async function fetchS(url) {
     try {
         const p = config?.[0]?.Miscellaneous?.[0]?.state
-        const r = await fetch(p ? p + encodeURIComponent(url) : url);
+        const r = await getImage(p ? p + encodeURIComponent(url) : url);
         if (!r.ok) return null;
         return await r.text();
     } catch {
