@@ -399,6 +399,10 @@ async function generateEmbed(url) {
 }
 
 async function buildMessage(msg, group, old = false) {
+    let blockedUsers = config?.[1]?.Social?.[0]?.state;
+    if (blockedUsers !== undefined && blockedUsers !== false) {
+        blockedUsers = blockedUsers.split(", ");
+    }
     const div = document.createElement("div");
     const username = document.createElement("p");
     const userPfp = document.createElement("img");
@@ -530,10 +534,14 @@ async function buildMessage(msg, group, old = false) {
         user.classList.add("messageReplyPreviewUsername");
         const text = document.createElement("p");
         const c = tempData.content;
-        if (c.length > 60)
-            text.textContent = c.slice(0, 60) + "...";
-        else
-            text.textContent = c;
+        if (typeof blockedUsers === "object" && blockedUsers.includes(msg.reply_to.user)) {
+            text.textContent = "Blocked message...";
+        } else {
+            if (c.length > 60)
+                text.textContent = c.slice(0, 60) + "...";
+            else
+                text.textContent = c;
+        }
 
         text.classList.add("messageReplyPreviewText");
         replyDiv.append(img, user, text);
@@ -641,8 +649,11 @@ async function buildMessage(msg, group, old = false) {
 
 
 async function newMsg(msg, old = false, f) {
-    const blockedUsers = config?.[1].Social?.[0]?.state?.split(", ");
-    if (blockedUsers.includes(msg.user)) return;
+    let blockedUsers = config?.[1]?.Social?.[0]?.state;
+    if (blockedUsers !== undefined && blockedUsers !== false) {
+        blockedUsers = blockedUsers.split(", ");
+        if (blockedUsers.includes(msg.user)) return;
+    }
     if (msg.channel !== currentChannel) if (msg.channel) { await checkPing(msg); return; };
     if (msg.type !== "message") return
 
