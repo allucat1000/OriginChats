@@ -641,6 +641,8 @@ async function buildMessage(msg, group, old = false) {
 
 
 async function newMsg(msg, old = false, f) {
+    const blockedUsers = config?.[1].Social?.[0]?.state?.split(", ");
+    if (blockedUsers.includes(msg.user)) return;
     if (msg.channel !== currentChannel) if (msg.channel) { await checkPing(msg); return; };
     if (msg.type !== "message") return
 

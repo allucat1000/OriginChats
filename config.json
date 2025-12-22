@@ -9,5 +9,16 @@
                 "inputPlaceholder":"Enter a HTTP proxy URL (keep as blank for no proxy)"
             }
         ]
+    },
+    {
+
+        "Social": [
+            {
+                "name":"Blocking",
+                "description":"Enter in the usernames of people to block (separated by \", \")",
+                "type":"input",
+                "state":false
+            }
+        ]
     }
 ]
