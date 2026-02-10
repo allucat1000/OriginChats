@@ -855,6 +855,11 @@ async function editMessage(data) {
     if (!el) throw new Error(`Unable to edit message with ID '${data.id}'`);
     const text = el.querySelector(".messageContent");
     if (text) text.innerHTML = parseMarkdown(data.content);
+    requestAnimationFrame(() => {
+        text.querySelectorAll('pre code').forEach(block => {
+            try { hljs.highlightElement(block); } catch {}
+        });
+    });
 }
 
 async function checkRatelimit(input) {
