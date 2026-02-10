@@ -200,7 +200,7 @@ body {
     display: flex;
     align-items: flex-start;
     gap: 0.66em;
-    margin-bottom: 0;
+    margin-bottom: -0.5em;
     margin-top: 0.25em;
 }
 
@@ -488,7 +488,7 @@ pre {
     margin: 0;
     padding: 0;
     z-index: 999;
-    background-color: rgb(0, 0, 0, 0.5);
+    background-color: rgb(0, 0, 0, 0.7);
 }
 
 .serverNavigateMenuInput {
@@ -635,8 +635,9 @@ pre {
 
 .serverInfoNameDiv {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
+    gap: 0.5em;
 }
 
 .serverInfoName {

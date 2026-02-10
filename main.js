@@ -4,7 +4,7 @@ import { openSettings, closeSettings, settingsOpen } from "./settings.js";
 export { mainDiv, userData, shortCodes, currentPermissions, config, messageArea, channels, userList };
 
 const mac = navigator.platform.toUpperCase().includes("MAC");
-if (!mac) document.body.style.backgroundColor = "rgb(0, 0, 0, 0.3)";
+if (!mac) document.body.style.backgroundColor = "rgb(0, 0, 0, 0.9)";
 
 const winClose = document.getElementById("winClose");
 const title = document.getElementById("title");
@@ -158,6 +158,8 @@ async function loadCss() {
 loadCss();
 
 async function connect(url) {
+    if (!url.startsWith("ws"))
+        url = "wss://" + url;
     if (url.length === 0) {
         serverSelect();
         return;
@@ -1332,7 +1334,7 @@ async function initUI() {
     }
 
 
-    async function openChannel(name, perms) {
+    async function openChannel(name, id, perms) {
         pinButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pin-icon lucide-pin"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>`;
         pinsDiv.remove();
         pinsMenuOpen = false;
@@ -1343,16 +1345,16 @@ async function initUI() {
         nextMessageCount = 0;
         messageList = [];
         messageStore = {};
-        const channelDiv = channelSidebar.querySelector("#channel-" + name);
-        if (channelDiv) channelDiv.textContent = "#" + name;
-        currentChannel = name;
+        const channelDiv = channelSidebar.querySelector("#channel-" + id);
+        if (channelDiv) channelDiv.textContent = name;
+        currentChannel = id;
         if (!ratelimit.active) {
             chatInput.disabled = "";
-            chatInput.placeholder = `Send a message in #${name}`;
+            chatInput.placeholder = `Send a message in ${name}`;
         }
-        title.textContent = `#${name} — ${serverInfo.name} — Originchats`;
+        title.textContent = `${name} — ${serverInfo.name} — Originchats`;
         currentPermissions = perms;
-        await loadMessages(messageScroll, name);
+        await loadMessages(messageScroll, id);
         messageArea.scrollTop = messageArea.scrollHeight + 10000;
     }
     window.openChannel = openChannel;
@@ -1361,7 +1363,17 @@ async function initUI() {
 
     for (const channel of channels) {
         const div = document.createElement("div");
-        if (channel.type === "separator") { div.classList.add("channelSeparator"); div.style.margin = `${channel.size / 15}em auto`} else { div.classList.add("channel"); div.textContent = "#" + channel.name; div.onclick = () => openChannel(channel.name, channel.permissions); }
+        if (channel.type === "separator") {
+            div.classList.add("channelSeparator");
+            div.style.margin = `${channel.size / 15}em auto`
+        } else {
+            div.classList.add("channel");
+            if (channel.display_name)
+                div.textContent = channel.display_name;
+            else
+                div.textContent = "#" + channel.name;
+            div.onclick = () => openChannel(channel.display_name ?? "#" + channel.name, channel.name, channel.permissions);
+        }
         div.id = "channel-" + channel.name;
         channelSidebar.append(div);
     }
