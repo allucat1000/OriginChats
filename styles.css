@@ -12,7 +12,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 code {
-    border-radius: 0.5em;
+    border-radius: 5px;
 }
 
 p {
@@ -35,7 +35,7 @@ body {
 #winControls {
     position: absolute;
     right: 0;
-    width: 48px;
+    width: 204px;
     top: 0;
     display: flex;
     align-items: center;
@@ -71,7 +71,6 @@ body {
     margin: 0;
     padding: 0.5em;
     overflow: scroll;
-    background: rgba(0, 0, 0, 0.3);
 }
 
 #chatArea {
@@ -87,6 +86,7 @@ body {
     flex-direction: column;
     overflow: hidden;
     height: 100%;
+    background-color: rgba(0, 0, 0, 0.2);
 }
 
 #msgContainer {
@@ -94,7 +94,7 @@ body {
 }
 
 #inputDiv {
-    border-radius: 0.5em;
+    border-radius: 5px;
     width: calc(100% - 2em);
     padding: 0.75em;
     background-color: rgb(65, 65, 65, 0.3);
@@ -132,7 +132,7 @@ body {
 }
 
 .inputOptionButton {
-    border-radius: 0.5em;
+    border-radius: 5px;
     padding: 0.25em 0.5em;
     background-color: rgb(50, 50, 50);
     border: rgba(120, 120, 120, 0.5) solid 1px;
@@ -174,9 +174,10 @@ body {
     width: calc(100% - 1em);
     background-color: rgba(75, 75, 75, 0.2);
     padding: 0.5em;
-    border-radius: 0.5em;
+    border-radius: 5px;
     margin-bottom: 0.5em;
     cursor: pointer;
+    outline: rgba(120, 120, 120, 0.5) solid 1px;
 }
 
 .channel:hover {
@@ -207,10 +208,11 @@ body {
 .message {
     margin: 0 0.5em;
     padding: 0.5em 1em;
-    border-radius: 0.5em;
+    border-radius: 5px;
     background-color: transparent;
     padding-bottom: 0.25em;
     position: relative;
+    transition: backgroundColor 0.2s ease-in-out;
 }
 
 .pingedMessage {
@@ -331,7 +333,7 @@ pre {
 }
 
 .embedImage {
-    border-radius: 0.5em;
+    border-radius: 5px;
     max-height: 20em;
     max-width: calc(100% - 1em);
     margin: 0.25em 0;
@@ -346,13 +348,13 @@ pre {
 
 .embedVideoDiv {
     border-style: none;
-    border-radius: 0.5em;
+    border-radius: 5px;
     height: 20em;
 }
 
 .embedVideoThumbnail {
     height: 20em;
-    border-radius: 0.5em;
+    border-radius: 5px;
     cursor: pointer;
 }
 
@@ -360,7 +362,7 @@ pre {
     width: 568px;
     height: 20em;
     border-style: none;
-    border-radius: 0.5em;
+    border-radius: 5px;
 }
 
 .embedDescription {
@@ -375,7 +377,7 @@ pre {
 
 .embedBox {
     background-color: rgb(20, 20, 20, 0.3);
-    border-radius: 0.5em;
+    border-radius: 5px;
     padding: 1em;
     display: flex;
     flex-direction: column;
@@ -395,7 +397,7 @@ pre {
     right: 0;
     background-color: rgb(60, 60, 60, 0.5);
     top: -0.5em;
-    border-radius: 0.5em;
+    border-radius: 5px;
     border-style: solid;
     border-width: thin;
     border-color: rgb(120, 120, 120, 0.5);
@@ -441,7 +443,7 @@ pre {
     background-color: rgba(60, 60, 60, 0.5);
     width: fit-content;
     padding: 0.33em;
-    border-radius: 0.5em;
+    border-radius: 5px;
     border-style: solid;
     border-width: thin;
     border-color: rgba(120, 120, 120, 0.5);
@@ -467,7 +469,7 @@ pre {
     margin: 3em auto;
     padding: 1em;
     width: 50%;
-    border-radius: 0.5em;
+    border-radius: 5px;
     background-color: rgb(40, 40, 40, 0.5);
     border-style: solid;
     border-width: thin;
@@ -518,7 +520,7 @@ pre {
 .messageYouTubeEmbed {
     border-style: none;
     margin: 0;
-    border-radius: 0.5em;
+    border-radius: 5px;
     position: absolute;
     top: 0;
     left: 0;
@@ -531,7 +533,7 @@ pre {
 
 .messageYouTubeThumbnail {
     max-height: calc(100% - 2.25em);
-    border-radius: 0.5em;
+    border-radius: 5px;
     margin: 0.5em 0;
     cursor: pointer;
 }
@@ -592,7 +594,7 @@ pre {
 
 .settingsMenuSidebarTab:hover {
     background-color: rgb(50, 50, 50, 0.5);
-    border-radius: 0.5em;
+    border-radius: 5px;
 }
 
 .settingsMenuContentOptionDiv {
@@ -611,7 +613,7 @@ pre {
 .settingsMenuContentOptionInputType {
     width: calc(100% - 1em);
     padding: 0.5em;
-    border-radius: 0.5em;
+    border-radius: 5px;
     border: rgba(120, 120, 120, 0.5) solid 1px;
     background-color: rgb(50, 50, 50, 0.5);
     color: white;
@@ -646,7 +648,7 @@ pre {
 
 .serverInfoIcon {
     width: 40px;
-    border-radius: 0.5em;
+    border-radius: 5px;
 }
 
 .serverLeaveButton {
@@ -656,7 +658,7 @@ pre {
     background-color: rgba(70, 70, 70, 0.3);
     color: white;
     border: rgba(120, 120, 120, 0.3) solid 1px;
-    border-radius: 0.5em;
+    border-radius: 5px;
     cursor: pointer;
 }
 
@@ -677,6 +679,7 @@ pre {
     border: rgba(120, 120, 120, 0.4) solid 1px;
     display: flex;
     gap: 0.5em;
+    z-index: 99;
 }
 
 .notificationFade {
@@ -773,7 +776,7 @@ pre {
     background-color: rgb(40, 40, 40, 0.95);
     position: absolute;
     right: 13em;
-    border-radius: 0.5em;
+    border-radius: 5px;
     top: 1em;
     border: rgba(120, 120, 120, 0.5) solid 1px;
     padding: 0.5em;
@@ -789,4 +792,40 @@ pre {
 .pinsSubTitle {
     font-size: 1em;
     margin: 1em;
+}
+
+#searchBar {
+    padding: 0.33rem;
+    border-radius: 5px;
+    border: rgba(120, 120, 120, 0.5) 1px solid;
+    background: rgb(45, 45, 45);
+    margin-right: 0.5em;
+    font-size: 0.7em;
+    width: 7rem;
+    color: white;
+}
+
+.searchResultsDiv {
+    background-color: rgb(40, 40, 40, 0.95);
+    position: absolute;
+    right: 13em;
+    border-radius: 5px;
+    top: 1em;
+    border: rgba(120, 120, 120, 0.5) solid 1px;
+    padding: 0.5em;
+    padding-top: 0.75em;
+    width: 30em;
+    max-height: 50%;
+    overflow: scroll;
+}
+
+.userListTitle {
+    font-size: 1em;
+    margin-bottom: 0;
+    font-weight: 0;
+    color: #bbb;
+}
+
+.highlighted {
+    background-color: rgba(107, 181, 255, 0.2);
 }

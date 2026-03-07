@@ -78,10 +78,14 @@ function parseMarkdown(text) {
             return m;
         });
 
+        line = line.replace(/#\$([\w-]+)/g, (m, id) => {
+            return `<span class="mention" onclick="jumpToMsg('${id}')">${id}</span>`;
+        });
+
         line = line.replace(/#([\w-]+)/g, (m, channel) => {
             const vC = channels.find(c => c?.name === channel);
             if (vC) 
-                return `<span class="mention" onclick="openChannel('${channel}')">#${channel}</span>`;
+                return `<span class="mention" onclick="openChannel('#${channel}', '${channel}')">#${channel}</span>`;
             
             return m;
             

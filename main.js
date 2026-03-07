@@ -22,7 +22,7 @@ if (Object.keys(config).length === 0) {
     localStorage.setItem("config", JSON.stringify(config));
 }
 
-let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData, lastTypePacket, typingCleanup, pins;
+let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData, lastTypePacket, typingCleanup, pins, searchResults;
 let typing = [];
 const chatInput = document.getElementById("chatInput");
 let messageHandling = {};
@@ -431,6 +431,7 @@ async function buildMessage(msg, group, old = false) {
     replyMessage.onclick = () => {
         messageHandling = { type: "reply", id: msg.id, user: msg.user, curInputPlaceholder: chatInput.placeholder }
         if (!ratelimit.active) {
+            chatInput.focus();
             chatInput.disabled = false;
             chatInput.placeholder = `Reply to ${msg.user}'s message...`;
         }
@@ -489,7 +490,20 @@ async function buildMessage(msg, group, old = false) {
         hoverMenu.prepend(input);
         input.focus();
     }
-    hoverMenu.append(reactMessage, editMessage, replyMessage, deleteMessage);
+    const idMessage = document.createElement("button");
+    idMessage.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-link2-icon lucide-link-2"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg>';
+    idMessage.classList.add("messageControlMenuButton");
+    idMessage.classList.add("messageIdButton");
+    idMessage.onclick = async() => {
+        try { 
+            await window.navigator.clipboard.writeText(`#$${msg.id}`);
+            notif("Copied message ID", `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-check-icon lucide-check"><path d="M20 6 9 17l-5-5"/></svg>`);
+        } catch {
+            notif("Failed to copy message ID to clipboard", `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-triangle-alert-icon lucide-triangle-alert"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`);
+        }
+    }
+
+    hoverMenu.append(reactMessage, idMessage, editMessage, replyMessage, deleteMessage);
     
     text.innerHTML = parseMarkdown(msg.content);
     div.classList.add("message");
@@ -546,7 +560,14 @@ async function buildMessage(msg, group, old = false) {
         }
 
         text.classList.add("messageReplyPreviewText");
-        replyDiv.append(img, user, text);
+        if (un === "Deleted message...") {
+            replyDiv.append(user);
+            user.style.marginLeft = "2.66em";
+            user.style.opacity = "0.5";
+            user.onclick = () => {};
+            user.style.cursor = "default";
+        } else   
+            replyDiv.append(img, user, text);
 
         tempData = null;
     }
@@ -650,7 +671,7 @@ async function buildMessage(msg, group, old = false) {
 
 
 
-async function newMsg(msg, old = false, f) {
+async function newMsg(msg, old = false, f, jump = true) {
     let blockedUsers = config?.[1]?.Social?.[0]?.state;
     if (blockedUsers !== undefined && blockedUsers !== false) {
         blockedUsers = blockedUsers.split(", ");
@@ -678,7 +699,7 @@ async function newMsg(msg, old = false, f) {
     if (appendSplit)
         f.prepend(obj.splitEl);
 
-    if (!old)
+    if (!old && jump)
         requestAnimationFrame(() => messageArea.scrollTop = messageArea.scrollHeight + 100);
     
     
@@ -947,7 +968,7 @@ function initFuncs() {
             case "message_new":
                 messageScroll++;
                 const f = document.createDocumentFragment();
-                await newMsg({ channel: data.channel, ...data.message }, false, f);
+                await newMsg({ channel: data.channel, ...data.message }, false, f, messageArea.scrollTop > messageArea.scrollHeight - 1000);
                 messageArea.append(f);
                 break;
             case "message_react_add":
@@ -965,6 +986,10 @@ function initFuncs() {
             case "error":
                 if (data?.val === "Access denied to this channel") {
                     messages = "NotFound";
+                    return;
+                }
+                if (data?.val === "Message not found") {
+                    tempData = { user: "Deleted message...", content: "", timestamp: 0, id: "" };
                     return;
                 }
                 notif(data.val, `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-triangle-alert-icon lucide-triangle-alert"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`);
@@ -998,6 +1023,10 @@ function initFuncs() {
 
             case "message_get":
                 tempData = { channel: data.channel, ...data.message }
+                break;
+
+            case "messages_search":
+                searchResults = data.results;
                 break;
 
             case "users_list":
@@ -1230,10 +1259,28 @@ async function loadMessages(start, name) {
         if (start === 0)
             messageArea.scrollTop = messageArea.scrollHeight + 100;
     }
+    if (messageList?.[0]) lastUser = messageList[0].user;
     messageArea.prepend(f);
     loadingMsgs = false;
 }
 
+async function jumpToMsg(id) {
+    const el = messageStore[id]?.el;
+    if (el) {
+        await el.scrollIntoView({ behavior: "smooth" });
+        const observer = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting) {
+                observer.disconnect();
+                el.classList.add("highlighted");
+                setTimeout(() => el.classList.remove("highlighted"), 1000);
+            }
+        });
+        observer.observe(el)
+    }
+    else notif("Unable to jump to unloaded message due to current server limitations", `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-triangle-alert-icon lucide-triangle-alert"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`);
+}
+
+window.jumpToMsg = jumpToMsg;
 
 async function initUI() {
     const channelSidebar = document.getElementById("channelSidebar");
@@ -1264,6 +1311,42 @@ async function initUI() {
     nameDiv.append(icon, name);
     serverInfoEl.append(nameDiv, leaveButton);
 
+    const searchBar = document.querySelector("#searchBar");
+    searchBar.addEventListener("keydown", async(e) => {
+        if (e.key === "Enter" && currentChannel) {
+            const lastUserS = lastUser;
+            e.preventDefault();
+            searchResults = null
+            const resultsDiv = document.createElement("div");
+            resultsDiv.classList.add("searchResultsDiv");
+            ws.send(JSON.stringify({
+                "cmd":"messages_search",
+                "channel": currentChannel,
+                "query": searchBar.value
+            }));
+            while (!searchResults) {
+                await new Promise(r => setTimeout(r, 10));
+            }
+            const f = document.createDocumentFragment();
+            for (const m of searchResults) {
+                const e = await buildMessage(m, false, true,);
+                f.append(e.el, e.splitEl);
+            }
+            if (searchResults.length === 0) {
+                const err = document.createElement("p");
+                err.classList.add("pinsSubTitle");
+                err.textContent = "No results found";
+                resultsDiv.append(err);
+            }
+            searchResults = null;
+            mainDiv.append(resultsDiv);
+            resultsDiv.append(f);
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") resultsDiv.remove();
+            })
+            lastUser = lastUserS;
+        }
+    })
 
     ws.send('{"cmd":"channels_get"}');
     while (!channels) {
@@ -1350,8 +1433,10 @@ async function initUI() {
         nextMessageCount = 0;
         messageList = [];
         messageStore = {};
-        const channelDiv = channelSidebar.querySelector("#channel-" + id);
-        if (channelDiv) channelDiv.textContent = name;
+        if (id) {
+            const channelDiv = channelSidebar.querySelector("#channel-" + id);
+            if (channelDiv) channelDiv.textContent = name;
+        }
         currentChannel = id;
         if (!ratelimit.active) {
             chatInput.disabled = "";
@@ -1371,6 +1456,8 @@ async function initUI() {
         if (channel.type === "separator") {
             div.classList.add("channelSeparator");
             div.style.margin = `${channel.size / 15}em auto`
+        } else if (channel.type === "voice") {
+            
         } else {
             div.classList.add("channel");
             if (channel.display_name)
@@ -1379,7 +1466,7 @@ async function initUI() {
                 div.textContent = "#" + channel.name;
             div.onclick = () => openChannel(channel.display_name ?? "#" + channel.name, channel.name, channel.permissions);
         }
-        div.id = "channel-" + channel.name;
+        if (channel.name) div.id = "channel-" + channel.name;
         channelSidebar.append(div);
     }
 
@@ -1402,7 +1489,7 @@ async function initUI() {
                 chatInput.placeholder = messageHandling.curInputPlaceholder;
                 messageHandling = {};
             } else
-                ws.send(`{"cmd":"message_new", "channel":"${currentChannel}", "content":${JSON.stringify(chatInput.value)}}`);
+                if (chatInput.value.trim().length > 0) ws.send(`{"cmd":"message_new", "channel":"${currentChannel}", "content":${JSON.stringify(chatInput.value)}}`);
             chatInput.value = "";
             chatInputUpdate();
         } else if (e.key === "Enter") {
