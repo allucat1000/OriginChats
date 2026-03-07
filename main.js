@@ -1456,7 +1456,7 @@ async function initUI() {
         if (channel.type === "separator") {
             div.classList.add("channelSeparator");
             div.style.margin = `${channel.size / 15}em auto`
-        } else if (channel.type === "channel") {
+        } else if (channel.type === "text") {
             div.classList.add("channel");
             if (channel.display_name)
                 div.textContent = channel.display_name;
