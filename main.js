@@ -1456,15 +1456,15 @@ async function initUI() {
         if (channel.type === "separator") {
             div.classList.add("channelSeparator");
             div.style.margin = `${channel.size / 15}em auto`
-        } else if (channel.type === "voice") {
-            
-        } else {
+        } else if (channel.type === "channel") {
             div.classList.add("channel");
             if (channel.display_name)
                 div.textContent = channel.display_name;
             else
                 div.textContent = "#" + channel.name;
             div.onclick = () => openChannel(channel.display_name ?? "#" + channel.name, channel.name, channel.permissions);
+        } else if (channel.type === "voice") {
+            
         }
         if (channel.name) div.id = "channel-" + channel.name;
         channelSidebar.append(div);
@@ -1486,10 +1486,10 @@ async function initUI() {
                     else if (messageHandling.type === "edit")
                         ws.send(`{"cmd":"message_edit", "channel":"${currentChannel}", "content":${JSON.stringify(chatInput.value)}, "id":"${messageHandling.id}"}`);
                 }
-                chatInput.placeholder = messageHandling.curInputPlaceholder;
                 messageHandling = {};
             } else
                 if (chatInput.value.trim().length > 0) ws.send(`{"cmd":"message_new", "channel":"${currentChannel}", "content":${JSON.stringify(chatInput.value)}}`);
+            chatInput.placeholder = messageHandling?.curInputPlaceholder ?? `Send a message in ${currentChannel}`;
             chatInput.value = "";
             chatInputUpdate();
         } else if (e.key === "Enter") {
