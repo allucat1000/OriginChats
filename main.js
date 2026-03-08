@@ -1,5 +1,6 @@
 import { parseMarkdown, checkPermissions, getImage, getPfp, replaceShortcodes, notif } from "./helpers.js";
 import { openSettings, closeSettings, settingsOpen } from "./settings.js";
+import { Voice } from "./voice.js"
 
 export { mainDiv, userData, shortCodes, currentPermissions, config, messageArea, channels, userList };
 
@@ -21,8 +22,8 @@ if (Object.keys(config).length === 0) {
     config = await (await fetch("./config.json")).json();
     localStorage.setItem("config", JSON.stringify(config));
 }
-
-let ws, token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData, lastTypePacket, typingCleanup, pins, searchResults;
+export let ws;
+let token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData, lastTypePacket, typingCleanup, pins, searchResults;
 let typing = [];
 const chatInput = document.getElementById("chatInput");
 let messageHandling = {};
@@ -444,6 +445,7 @@ async function buildMessage(msg, group, old = false) {
     editMessage.onclick = () => {
         messageHandling = { type: "edit", id: msg.id, curInputPlaceholder: chatInput.placeholder }
         if (!ratelimit.active) {
+            chatInput.focus();
             chatInput.disabled = false;
             chatInput.placeholder = `Edit your message...`;
             const updated = updatedMsgs[msg.id];
@@ -935,7 +937,7 @@ function initFuncs() {
             console.warn("Server returned invalid data for message, ignored.");
             return;
         }
-        const cmd = data.cmd;
+        const cmd = data.cmd ?? data.type;
         switch (cmd) {
             case "handshake":
                 serverInfo = {
@@ -1322,7 +1324,7 @@ async function initUI() {
             ws.send(JSON.stringify({
                 "cmd":"messages_search",
                 "channel": currentChannel,
-                "query": searchBar.value
+                "query": searchBar.value.toLowerCase()
             }));
             while (!searchResults) {
                 await new Promise(r => setTimeout(r, 10));
@@ -1449,6 +1451,10 @@ async function initUI() {
     }
     window.openChannel = openChannel;
 
+    async function openVoice(vc) {
+
+    }
+
     if (!channelSidebar) return;
 
     for (const channel of channels) {
@@ -1464,9 +1470,11 @@ async function initUI() {
                 div.textContent = "#" + channel.name;
             div.onclick = () => openChannel(channel.display_name ?? "#" + channel.name, channel.name, channel.permissions);
         } else if (channel.type === "voice") {
-            
+            div.classList.add("channel");
+            div.textContent = channel.name;
+            div.onclick = () => openVoice(channel.name);
         }
-        if (channel.name) div.id = "channel-" + channel.name;
+        if (channel.name && channel.type === "text") div.id = "channel-" + channel.name; else if (channel.type === "voice") div.id = "voice-" + channel.name;
         channelSidebar.append(div);
     }
 
