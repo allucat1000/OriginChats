@@ -23,7 +23,7 @@ if (Object.keys(config).length === 0) {
     localStorage.setItem("config", JSON.stringify(config));
 }
 export let ws;
-let token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData, lastTypePacket, typingCleanup, pins, searchResults;
+let token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData, lastTypePacket, typingCleanup, pins, searchResults, vcMembers, voice;
 let typing = [];
 const chatInput = document.getElementById("chatInput");
 let messageHandling = {};
@@ -1110,6 +1110,25 @@ function initFuncs() {
                 checkRatelimit(chatInput);
                 break;
 
+            case "voice_state":
+                vcMembers = data.participants;
+                break;
+
+            case "voice_user_left":
+                if (voice.currentVC === data.channel) {
+                    voice.userLeft(data.username);
+                }
+                break;
+
+            case "voice_user_joined":
+            case "voice_user_join": 
+                if (voice.currentVC === data.channel) {
+                    voice.userJoin(data.user.username, data.user.peer_id);
+                }
+                break;
+
+            case "voice_join": break;
+            
             default:
                 console.warn(`Unknown command sent by server: '${cmd}'`);
                 break;
@@ -1285,6 +1304,9 @@ async function jumpToMsg(id) {
 window.jumpToMsg = jumpToMsg;
 
 async function initUI() {
+    voice = new Voice();
+
+    voice.init();
     const channelSidebar = document.getElementById("channelSidebar");
 
     const serverInfoEl = document.querySelector("#serverInfo");
@@ -1452,7 +1474,7 @@ async function initUI() {
     window.openChannel = openChannel;
 
     async function openVoice(vc) {
-
+        voice.join(vc);
     }
 
     if (!channelSidebar) return;
