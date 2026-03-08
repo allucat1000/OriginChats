@@ -829,3 +829,18 @@ pre {
 .highlighted {
     background-color: rgba(107, 181, 255, 0.2);
 }
+
+.vcStream {
+    max-width: 95%;
+    display: block;
+    border-radius: 1em;
+    outline: #ddd solid 3px;
+    max-height: 20em;
+}
+
+.vcStreamContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 0.5em;
+}

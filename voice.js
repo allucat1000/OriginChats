@@ -5,29 +5,80 @@ export class Voice {
         this.peer = null;
         this.connections = new Map();
         this.calls = new Map();
+        this.videoCalls = new Map();
         this.localStream = null;
+        this.videoStream = null;
         this.forceMuted = false;
         this.muted = false;
         this.currentVC = null;
         this.id = null;
         this.audioContexts = new Map();
         this.audioContainers = new Map();
+        this.videoStreams = new Map();
         this.users = new Map();
     }
 
-    init() {
-        this.peer = new Peer(null, {
-            debug: 2
-        });
+    init(turnServers) {
+        if (turnServers)
+            this.peer = new Peer(null, {
+                debug: 2,
+                config: {
+                    iceServers: JSON.parse(turnServers),
+                    iceTransportPolicy: "relay"
+                },
+            });
+        else
+            this.peer = new Peer(null, {
+                debug: 2
+            });
 
         this.peer.on("open", (id) => {
             this.id = id;
         });
 
-        this.peer.on("call", (call) => {
-            call.answer(this.localStream);
-            this.setupCallHandlers(call, call.peer);
-            this.calls.set(call.peer, call);
+        this.peer.on("call", async (call) => {
+            const useStream = call.metadata?.video ? this.videoStream : this.localStream || new MediaStream([this.#silentTrack()]);
+            call.answer(useStream);
+
+            if (call.metadata?.video) this.videoCalls.set(call.peer, call);
+            else this.calls.set(call.peer, call);
+
+            call.on("stream", (stream) => {
+
+                if (stream.getVideoTracks().length > 0 && !this.videoStreams.has(call.peer)) {
+                    this.videoStreams.set(call.peer, stream);
+
+                    const el = document.createElement("video");
+                    el.id = `strm-${call.peer}`;
+                    el.playsInline = true;
+                    el.autoplay = true;
+                    el.controls = false;
+                    el.srcObject = stream;
+                    el.classList.add("vcStream");
+                    const container = document.querySelector(".vcStreamContainer");
+                    if (container) container.appendChild(el);
+                } else {
+                    this.addStream(stream, call.peer);
+                }
+            });
+
+            call.on("close", () => {
+                if (this.videoStreams.has(call.peer)) {
+                    this.videoStreams.delete(call.peer);
+
+                    const el = document.getElementById(`strm-${call.peer}`);
+                    if (el) el.remove();
+                } else {
+                    this.removePeer(call.peer);
+                }
+
+                this.videoCalls.delete(call.peer);
+            });
+
+            call.on("error", () => {
+                if (call.metadata?.video) this.videoStreams.delete(call.peer);
+                else this.removePeer(call.peer);
+            });
         });
     }
 
@@ -69,144 +120,117 @@ export class Voice {
     async leave() {
         if (!this.currentVC) return;
 
-        ws.send(JSON.stringify({
-            cmd: "voice_leave"
-        }));
+        ws.send(JSON.stringify({ cmd: "voice_leave" }));
 
-        this.calls.forEach(call => call.close());
+        this.calls.forEach(c => c.close());
         this.calls.clear();
 
-        this.audioContexts.forEach(ac => {
-            if (ac && ac.close) {
-                try { ac.close(); } catch {}
-            }
-        });
+        this.videoCalls.forEach(c => c.close());
+        this.videoCalls.clear();
+        this.videoStreams.clear();
 
+        this.audioContexts.forEach(ac => { if (ac?.close) { try { ac.close(); } catch {} } });
         this.audioContexts.clear();
 
-        this.audioContainers.forEach(a => {
-            try { a.pause(); } catch {}
-        });
-
+        this.audioContainers.forEach(a => { try { a.pause(); } catch {} });
         this.audioContainers.clear();
 
         this.currentVC = null;
         this.connections.clear();
     }
 
-    async connect(peer, username) {
-        if (this.connections.has(peer)) return;
+    async connect(peerId, username) {
+        if (this.connections.has(peerId)) return;
 
         try {
-            const conn = this.peer.connect(peer);
-            this.connections.set(peer, conn);
+            const conn = this.peer.connect(peerId);
+            this.connections.set(peerId, conn);
 
-            const call = this.peer.call(peer, this.localStream);
-            this.setupCallHandlers(call, peer, username);
-            this.calls.set(peer, call);
+            const call = this.peer.call(peerId, this.localStream, { metadata: { video: false } });
+            this.setupCallHandlers(call, peerId);
+            this.calls.set(peerId, call);
 
+            if (this.videoStream) {
+                const vcall = this.peer.call(peerId, this.videoStream, { metadata: { video: true } });
+                vcall.on("stream", stream => this.videoStreams.set(peerId, stream));
+                vcall.on("close", () => this.videoStreams.delete(peerId));
+                this.videoCalls.set(peerId, vcall);
+            }
         } catch (e) {
             console.warn("Voice connect failed", e);
         }
     }
 
-    setupCallHandlers(call, id, username) {
-        call.on("stream", (stream) => {
-            this.addStream(stream, id);
-        });
-
-        call.on("close", () => {
-            this.removePeer(id);
-        });
-
-        call.on("error", () => {
-            this.removePeer(id);
-        });
-    }
-
-    removePeer(id) {
-        const audio = this.audioContainers.get(id);
-        if (audio) {
-            try { audio.pause(); } catch {}
-            this.audioContainers.delete(id);
-        }
-
-        const ctx = this.audioContexts.get(id);
-        if (ctx) {
-            try { ctx.close(); } catch {}
-            this.audioContexts.delete(id);
-        }
-
-        this.calls.delete(id);
-        this.connections.delete(id);
+    setupCallHandlers(call, id) {
+        call.on("stream", stream => this.addStream(stream, id));
+        call.on("close", () => this.removePeer(id));
+        call.on("error", () => this.removePeer(id));
     }
 
     addStream(stream, id) {
         const audio = new Audio();
         audio.srcObject = stream;
         audio.autoplay = true;
-
         this.audioContainers.set(id, audio);
 
-        this.setupMic(stream, id);
-    }
+        if (!stream.getAudioTracks().length) return;
 
-    setupMic(stream, id) {
         try {
             const ac = new AudioContext();
-
             const src = ac.createMediaStreamSource(stream);
             const analyser = ac.createAnalyser();
-
             analyser.fftSize = 256;
-
             src.connect(analyser);
-
             const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-            const loop = () => {
-                analyser.getByteFrequencyData(dataArray);
-
-                const avg =
-                    dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-
-
-                requestAnimationFrame(loop);
-            };
-
+            const loop = () => { analyser.getByteFrequencyData(dataArray); requestAnimationFrame(loop); };
             loop();
-
             this.audioContexts.set(id, ac);
+        } catch {}
+    }
 
-        } catch (e) {
-            console.warn("mic analyser failed", e);
-        }
+    removePeer(id) {
+        const audio = this.audioContainers.get(id);
+        if (audio) { try { audio.pause(); } catch {} this.audioContainers.delete(id); }
+        const ac = this.audioContexts.get(id);
+        if (ac) { try { ac.close(); } catch {} this.audioContexts.delete(id); }
+        this.calls.delete(id);
+        this.connections.delete(id);
+    }
+
+    setVideoStream(stream) {
+        this.videoStream = stream;
+        this.connections.forEach((_, peerId) => {
+            const oldCall = this.videoCalls.get(peerId);
+            if (oldCall) oldCall.close();
+            const vcall = this.peer.call(peerId, this.videoStream, { metadata: { video: true } });
+            vcall.on("stream", s => this.videoStreams.set(peerId, s));
+            vcall.on("close", () => this.videoStreams.delete(peerId));
+            this.videoCalls.set(peerId, vcall);
+        });
     }
 
     userLeft(user) {
         const id = this.users.get(user);
+        if (!id) return;
 
-        if (id) {
-            const ac = this.audioContexts.get(id);
-            if (ac && ac.close) {
-                ac.close();
-            }
-            this.audioContexts.delete(id);
-            const call = this.calls.get(peerId);
-            if (call) {
-                call.close();
-                this.calls.delete(peerId);
-            }
-            const conn = this.connections.get(peerId);
-            if (conn) {
-                conn.close();
-                this.connections.delete(peerId);
-            }
-            this.users.delete(user);
-        }
+        const ac = this.audioContexts.get(id);
+        if (ac) { ac.close(); this.audioContexts.delete(id); }
+
+        const call = this.calls.get(id);
+        if (call) { call.close(); this.calls.delete(id); }
+
+        const vcall = this.videoCalls.get(id);
+        if (vcall) { vcall.close(); this.videoCalls.delete(id); }
+
+        const vidEl = document.getElementById(`strm-${id}`);
+        if (vidEl) vidEl.remove();
+
+        this.connections.delete(id);
+        this.users.delete(user);
+        this.videoStreams.delete(id);
     }
 
     userJoin(user, id) {
         this.users.set(user, id);
-    };
+    }
 }

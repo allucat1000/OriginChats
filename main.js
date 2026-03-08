@@ -23,7 +23,7 @@ if (Object.keys(config).length === 0) {
     localStorage.setItem("config", JSON.stringify(config));
 }
 export let ws;
-let token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData, lastTypePacket, typingCleanup, pins, searchResults, vcMembers, voice;
+let token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData, lastTypePacket, typingCleanup, pins, searchResults, vcMembers, voice, currentChannelType;
 let typing = [];
 const chatInput = document.getElementById("chatInput");
 let messageHandling = {};
@@ -1128,7 +1128,7 @@ function initFuncs() {
                 break;
 
             case "voice_join": break;
-            
+
             default:
                 console.warn(`Unknown command sent by server: '${cmd}'`);
                 break;
@@ -1306,7 +1306,8 @@ window.jumpToMsg = jumpToMsg;
 async function initUI() {
     voice = new Voice();
 
-    voice.init();
+    const v = config?.[2]?.Voice?.[0]?.state;
+    if (v) voice.init(v); else voice.init();
     const channelSidebar = document.getElementById("channelSidebar");
 
     const serverInfoEl = document.querySelector("#serverInfo");
@@ -1447,6 +1448,7 @@ async function initUI() {
 
 
     async function openChannel(name, id, perms) {
+        currentChannelType = "text";
         pinButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-pin-icon lucide-pin"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>`;
         pinsDiv.remove();
         pinsMenuOpen = false;
@@ -1474,7 +1476,20 @@ async function initUI() {
     window.openChannel = openChannel;
 
     async function openVoice(vc) {
-        voice.join(vc);
+        currentChannelType = "voice";
+        if (!voice.currentVC || voice.currentVC == vc) {
+            currentChannel = vc;
+            if (!ratelimit.active) {
+                chatInput.disabled = "";
+                chatInput.placeholder = `Send a message in ${vc}`;
+            }
+            title.textContent = `${vc} — ${serverInfo.name} — Originchats`;
+            if (!voice.currentVC) voice.join(vc);
+            messageArea.innerHTML = "";
+            const streams = document.createElement("div");
+            streams.classList.add("vcStreamContainer");
+            messageArea.append(streams);
+        }
     }
 
     if (!channelSidebar) return;
@@ -1556,7 +1571,7 @@ let lastScrolled = 0;
 
 async function scrollCheck() {
     while (true) {
-        if (messageArea.scrollHeight > messageArea.offsetHeight) {
+        if (messageArea.scrollHeight > messageArea.offsetHeight && currentChannelType == "text") {
             if (messageArea.scrollTop < 50) {
                 messageArea.scrollTop = 50;
                 if (lastScrolled + 1000 > Date.now()) continue;

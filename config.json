@@ -20,5 +20,17 @@
                 "state":false
             }
         ]
+    },
+    {
+
+        "Voice": [
+            {
+                "name":"TURN server array",
+                "description":"The servers used by the client for secure WebRTC connections",
+                "type":"input",
+                "state":false,
+                "inputPlaceholder":"Enter in a server array (keep as blank for raw P2P in voice channels)"
+            }
+        ]
     }
 ]
