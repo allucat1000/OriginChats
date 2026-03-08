@@ -844,3 +844,33 @@ pre {
     align-items: center;
     padding-top: 0.5em;
 }
+
+.currentChannel {
+    background-color: rgb(130, 130, 130, 0.2) !important;
+}
+
+.vcUserImage {
+    width: 64px;
+    border-radius: 50%;
+}
+
+.vcUserContainer {
+    padding: 1em 2em;
+    display: flex;
+    gap: 1em;
+}
+
+.vcLeaveButton {
+    width: 100px;
+    padding: 1em;
+    border-radius: 5px;
+    border: rgba(120, 120, 120, 0.5) solid 1px;
+    background-color: rgba(50, 50, 50, 0.9);
+    color: #fff;
+    margin-left: 0.66em;
+    cursor: pointer;
+}
+
+.vcLeaveButton:hover {
+    background-color: rgba(70, 70, 70, 0.9);;
+}

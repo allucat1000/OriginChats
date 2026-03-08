@@ -228,6 +228,11 @@ export class Voice {
         this.connections.delete(id);
         this.users.delete(user);
         this.videoStreams.delete(id);
+        const container = document.querySelector(".vcUserContainer");
+        if (container) {
+            const p = container.querySelector("." + user);
+            if (p) p.remove();
+        }
     }
 
     userJoin(user, id) {
