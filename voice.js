@@ -18,18 +18,41 @@ export class Voice {
         this.users = new Map();
     }
 
-    init(turnServers) {
-        if (turnServers)
+    init(customTurn) {
+        if (customTurn)
             this.peer = new Peer(null, {
                 debug: 2,
                 config: {
-                    iceServers: JSON.parse(turnServers),
+                    iceServers: JSON.parse(customTurn),
                     iceTransportPolicy: "relay"
-                },
+                }
             });
         else
             this.peer = new Peer(null, {
-                debug: 2
+                debug: 2,
+                config: {
+                    iceServers: [
+                        {
+                            urls: 'stun:openrelay.metered.ca:80'
+                        },
+                        {
+                            urls: 'turn:openrelay.metered.ca:80',
+                            username: 'openrelayproject',
+                            credential: 'openrelayproject'
+                        },
+                        {
+                            urls: 'turn:openrelay.metered.ca:443',
+                            username: 'openrelayproject',
+                            credential: 'openrelayproject'
+                        },
+                        {
+                            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                            username: 'openrelayproject',
+                            credential: 'openrelayproject'
+                        }
+                    ],
+                    iceTransportPolicy: "relay"
+                }
             });
 
         this.peer.on("open", (id) => {
