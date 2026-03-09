@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, shell, desktopCapturer } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, desktopCapturer, Tray, Menu } = require('electron');
 const path = require('path');
 
+let tray;
 app.whenReady().then(() => {
   const win = new BrowserWindow({
     width: 1680,
@@ -17,6 +18,20 @@ app.whenReady().then(() => {
   });
 
   win.loadFile('index.html');
+
+  tray = new Tray(path.join(__dirname, "icons/icon.png"));
+
+  const contextMenu = Menu.buildFromTemplate([
+    { label: "Show", click: () => win.show() },
+    { label: "Quit", click: () => app.quit() }
+  ]);
+
+  tray.setToolTip("OriginChats");
+  tray.setContextMenu(contextMenu);
+
+  tray.on("click", () => {
+    win.isVisible() ? win.hide() : win.show();
+  });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
