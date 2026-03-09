@@ -1749,10 +1749,12 @@ async function initUI() {
         if (!f) return;
         if (f.type.startsWith('image/')) {
             try {
+                chatInput.disabled = true;
                 const u = await uploadAttachment(f);
                 if (u) chatInput.value = chatInput.value + " " + u
             } catch (e) { console.error(e); };
         } else console.warn("Only image files allowed!");
+        chatInput.disabled = false;
     });
 
 
