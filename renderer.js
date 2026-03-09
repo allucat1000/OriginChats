@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, desktopCapturer } = require('electron');
 const path = require('path');
 
 app.whenReady().then(() => {
@@ -40,6 +40,11 @@ app.whenReady().then(() => {
         break;
     }
   });
+
+  ipcMain.handle('get-screen-stream-id', async () => {
+    const sources = await desktopCapturer.getSources({ types: ['screen'] })
+    return sources[0].id
+  })
   
   ipcMain.handle("login", async () => {
     return new Promise((resolve, reject) => {

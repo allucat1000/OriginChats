@@ -33,22 +33,9 @@ export class Voice {
                 config: {
                     iceServers: [
                         {
-                            urls: 'stun:openrelay.metered.ca:80'
-                        },
-                        {
-                            urls: 'turn:openrelay.metered.ca:80',
-                            username: 'openrelayproject',
-                            credential: 'openrelayproject'
-                        },
-                        {
-                            urls: 'turn:openrelay.metered.ca:443',
-                            username: 'openrelayproject',
-                            credential: 'openrelayproject'
-                        },
-                        {
-                            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-                            username: 'openrelayproject',
-                            credential: 'openrelayproject'
+                            urls: 'turn:free.expressturn.com:3478',
+                            username: '000000002088395920',
+                            credential: 'igxH3ZLYfEC4tyG0oqmuJYmGNBk='
                         }
                     ],
                     iceTransportPolicy: "relay"
@@ -230,6 +217,20 @@ export class Voice {
             vcall.on("close", () => this.videoStreams.delete(peerId));
             this.videoCalls.set(peerId, vcall);
         });
+    }
+
+    stopVideoStream() {
+        if (this.videoStream) {
+            this.videoStream.getTracks().forEach(t => t.stop())
+            this.videoStream = null
+        }
+
+        this.videoCalls.forEach(c => c.close())
+        this.videoCalls.clear()
+        this.videoStreams.clear()
+
+        const el = document.getElementById('local-stream')
+        if (el) el.remove()
     }
 
     userLeft(user) {

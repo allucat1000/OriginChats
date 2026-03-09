@@ -559,6 +559,7 @@ async function buildMessage(msg, group, old = false) {
                 text.textContent = c.slice(0, 60) + "...";
             else
                 text.textContent = c;
+            text.onclick = () => jumpToMsg(msg.reply_to.id);
         }
 
         text.classList.add("messageReplyPreviewText");
@@ -633,6 +634,7 @@ async function buildMessage(msg, group, old = false) {
                     continue;
                 }
                 div.textContent = `${key} ${value.length}`;
+                div.title = msg.reactions[key].join(", ");
                 emojis.append(div);
                 div.onclick = () => { 
                     if (!reactedMessages[key]) reactedMessages[key] = [];
@@ -795,10 +797,13 @@ async function toggleReact(data, add) {
         if (emoji) {
             if (add) {
                 const count = Number(emoji.textContent.split(" ")[1].trim());
+                emoji.title = emoji.title + `, ${data.from}`;
                 emoji.textContent = `${data.emoji} ${count + 1}`;
             } else {
                 const count = Number(emoji.textContent.split(" ")[1].trim());
                 emoji.textContent = `${data.emoji} ${count - 1}`;
+                const r = emoji.title.split(", ").filter(i => i !== data.from);
+                emoji.title = r.join(", ");
                 if (count == 1) { emoji.remove(); if (emojiList.children.length == 0) emojiList.style.marginTop = "0"; }
             }
         } else {
@@ -807,6 +812,7 @@ async function toggleReact(data, add) {
                 emojiList.style.marginTop = "0.5em";
                 if (data.from == userData.username) div.classList.add("messageReactionEnabled");
                 div.classList.add(encodeEmoji(data.emoji), "messageReaction");
+                div.title = data.from;
                 div.textContent = `${data.emoji} 1`;
                 emojiList.append(div);
                 div.onclick = () => { 
@@ -1520,6 +1526,8 @@ async function initUI() {
             streams.classList.add("vcStreamContainer");
             const users = document.createElement("div");
             users.classList.add("vcUserContainer");
+            const buttonContainer = document.createElement("div");
+            buttonContainer.classList.add("vcButtonContainer");
             const leave = document.createElement("button");
             leave.textContent = "Leave VC";
             leave.classList.add("vcLeaveButton");
@@ -1527,9 +1535,70 @@ async function initUI() {
                 await voice.leave();
                 messageArea.innerHTML = "";
                 currentChannel = null;
+                if (streamButton.textContent == "Stop sharing")
+                    voice.stopVideoStream();
                 channelDiv.classList.remove("currentChannel");
             };
-            messageArea.append(leave, streams, users);
+            const streamButton = document.createElement("button");
+            streamButton.classList.add("vcStreamButton");
+            streamButton.textContent = "Share your screen";
+            streamButton.onclick = async () => {
+                if (streamButton.textContent =="Share your screen") {
+                    try {
+                        const sourceId = await window.electronAPI.getScreenSourceId()
+
+                        const stream = await navigator.mediaDevices.getUserMedia({
+                            video: {
+                                mandatory: {
+                                    chromeMediaSource: 'desktop',
+                                    chromeMediaSourceId: sourceId,
+                                }
+                            },
+                            audio: false
+                        });
+
+                        voice.setVideoStream(stream);
+
+                        const existing = document.getElementById('local-stream')
+                        if (existing) existing.remove()
+
+                        const el = document.createElement('video')
+                        el.id = 'local-stream'
+                        el.playsInline = true
+                        el.autoplay = true
+                        el.muted = true
+                        el.srcObject = stream
+                        el.classList.add('vcStream')
+                        document.querySelector('.vcStreamContainer')?.appendChild(el)
+
+                        streamButton.textContent = "Stop sharing";
+                    } catch (e) {
+                        console.error(e.name, e.message)
+                        streamButton.textContent = "Failed to share screen"
+                        setTimeout(() => { streamButton.textContent = "Share your screen" }, 3000);
+                    }
+                } else if (streamButton.textContent == "Stop sharing") {
+                    voice.stopVideoStream();
+                    streamButton.textContent = "Share your screen"
+                    return
+                }
+            }
+            buttonContainer.append(leave, streamButton);
+            messageArea.append(buttonContainer, streams, users);
+
+            voice.videoStreams.forEach((stream, id) => {
+                if (document.getElementById(`strm-${id}`)) return;
+
+                const el = document.createElement("video");
+                el.id = `strm-${id}`;
+                el.playsInline = true;
+                el.autoplay = true;
+                el.controls = false;
+                el.srcObject = stream;
+                el.classList.add("vcStream");
+                streams.append(el);
+            });
+
             vcMembers = null;
             ws.send(JSON.stringify({
                 cmd: "voice_state",
