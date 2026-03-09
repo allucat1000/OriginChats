@@ -1132,6 +1132,7 @@ function initFuncs() {
                     voice.userJoin(data.user.username, data.user.peer_id);
                     const container = document.querySelector(".vcUserContainer");
                     if (container) {
+                        if (document.querySelector(`.${data.user.username}`)) return;
                         const p = document.createElement("img");
                         p.classList.add("vcUserImage");
                         p.classList.add(data.user.username);
@@ -1608,12 +1609,14 @@ async function initUI() {
                 await new Promise(r => setTimeout(r, 10));
             }
             for (const u of vcMembers) {
+                if (!voice.users.has(u.username)) voice.users.set(u.username, u.peer_id);
                 const p = document.createElement("img");
                 p.classList.add("vcUserImage");
                 p.classList.add(u.username);
                 p.src = await getPfp(u.username);
                 users.append(p);
             }
+            console.log(voice.users);
         } else if (voice.currentVC) {
             await voice.leave();
             openVoice(vc);

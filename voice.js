@@ -47,11 +47,7 @@ export class Voice {
         });
 
         this.peer.on("call", async (call) => {
-            const useStream = call.metadata?.video ? this.videoStream : this.localStream || new MediaStream([this.#silentTrack()]);
-            call.answer(useStream);
-
-            if (call.metadata?.video) this.videoCalls.set(call.peer, call);
-            else this.calls.set(call.peer, call);
+            call.answer(this.localStream || new MediaStream([this.#silentTrack()]));
 
             call.on("stream", (stream) => {
 
@@ -65,9 +61,10 @@ export class Voice {
                     el.controls = false;
                     el.srcObject = stream;
                     el.classList.add("vcStream");
-                    const container = document.querySelector(".vcStreamContainer");
-                    if (container) container.appendChild(el);
-                } else {
+                    document.querySelector(".vcStreamContainer")?.appendChild(el);
+
+                } else if (!this.calls.has(call.peer)) {
+                    this.calls.set(call.peer, call);
                     this.addStream(stream, call.peer);
                 }
             });
@@ -75,19 +72,19 @@ export class Voice {
             call.on("close", () => {
                 if (this.videoStreams.has(call.peer)) {
                     this.videoStreams.delete(call.peer);
-
+                    this.videoCalls.delete(call.peer);
                     const el = document.getElementById(`strm-${call.peer}`);
                     if (el) el.remove();
                 } else {
                     this.removePeer(call.peer);
                 }
-
-                this.videoCalls.delete(call.peer);
             });
 
             call.on("error", () => {
-                if (call.metadata?.video) this.videoStreams.delete(call.peer);
-                else this.removePeer(call.peer);
+                this.videoStreams.delete(call.peer);
+                this.videoCalls.delete(call.peer);
+                const el = document.getElementById(`strm-${call.peer}`);
+                if (el) el.remove();
             });
         });
     }
@@ -150,20 +147,18 @@ export class Voice {
     }
 
     async connect(peerId, username) {
-        if (this.connections.has(peerId)) return;
+        if (this.calls.has(peerId)) return;
 
         try {
-            const conn = this.peer.connect(peerId);
-            this.connections.set(peerId, conn);
-
-            const call = this.peer.call(peerId, this.localStream, { metadata: { video: false } });
+            const call = this.peer.call(peerId, this.localStream);
             this.setupCallHandlers(call, peerId);
             this.calls.set(peerId, call);
 
             if (this.videoStream) {
                 const vcall = this.peer.call(peerId, this.videoStream, { metadata: { video: true } });
-                vcall.on("stream", stream => this.videoStreams.set(peerId, stream));
+                vcall.on("stream", s => this.videoStreams.set(peerId, s));
                 vcall.on("close", () => this.videoStreams.delete(peerId));
+                vcall.on("error", e => console.warn("video call error", e));
                 this.videoCalls.set(peerId, vcall);
             }
         } catch (e) {
@@ -207,14 +202,49 @@ export class Voice {
         this.connections.delete(id);
     }
 
-    setVideoStream(stream) {
+    async setVideoStream(stream) {
+        const closePromises = [];
+        this.videoCalls.forEach(c => {
+            closePromises.push(new Promise(resolve => {
+                c.on("close", resolve);
+                c.on("error", resolve);
+                try { c.close(); } catch {}
+                setTimeout(resolve, 1000);
+            }));
+        });
+
+        this.videoCalls.clear();
+        this.videoStreams.clear();
+        document.querySelectorAll('.vcStream:not(#local-stream)').forEach(el => el.remove());
+
         this.videoStream = stream;
-        this.connections.forEach((_, peerId) => {
-            const oldCall = this.videoCalls.get(peerId);
-            if (oldCall) oldCall.close();
-            const vcall = this.peer.call(peerId, this.videoStream, { metadata: { video: true } });
-            vcall.on("stream", s => this.videoStreams.set(peerId, s));
-            vcall.on("close", () => this.videoStreams.delete(peerId));
+
+        await Promise.all(closePromises);
+
+        this.users.forEach((peerId) => {
+            if (!this.peer || !peerId) return;
+            if (peerId === this.id) return; 
+            const vcall = this.peer.call(peerId, stream, { metadata: { video: true } });
+            vcall.on("stream", s => {
+                const old = document.getElementById(`strm-${peerId}`);
+                if (old) old.remove();
+                this.videoStreams.set(peerId, s);
+
+                const el = document.createElement("video");
+                el.id = `strm-${peerId}`;
+                el.playsInline = true;
+                el.autoplay = true;
+                el.controls = false;
+                el.srcObject = s;
+                el.classList.add("vcStream");
+                document.querySelector(".vcStreamContainer")?.appendChild(el);
+            });
+            vcall.on("close", () => {
+                this.videoStreams.delete(peerId);
+                const el = document.getElementById(`strm-${peerId}`);
+                if (el) el.remove();
+            });
+            vcall.on("error", e => console.warn("video call error", e));
             this.videoCalls.set(peerId, vcall);
         });
     }

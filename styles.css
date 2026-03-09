@@ -840,9 +840,12 @@ pre {
 
 .vcStreamContainer {
     display: flex;
-    flex-direction: column;
-    align-items: center;
+    flex-direction: row;
     padding-top: 0.5em;
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: center;
+    gap: 2em;
 }
 
 .currentChannel {
