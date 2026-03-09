@@ -21,7 +21,7 @@ app.whenReady().then(() => {
 
   win.loadFile('index.html');
 
-  tray = new Tray(path.join(__dirname, "icons/icon.png"));
+  tray = new Tray(path.join(__dirname, "icons/tray.png"));
 
   const contextMenu = Menu.buildFromTemplate([
     { label: "Show", click: () => win.show() },
