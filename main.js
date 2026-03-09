@@ -838,8 +838,8 @@ async function toggleReact(data, add) {
 
 async function deleteMessage(data) {
     if (data.channel !== currentChannel) return;
-    const el = messageStore[data.id].el;
-    const delMsg = messageStore[data.id].data;
+    const el = messageStore[data.id]?.el;
+    const delMsg = messageStore[data.id]?.data;
     if (!el) throw new Error(`Unable to delete message with ID '${data.id}'`);
     const top = el.querySelector(".userDiv");
     if (top) {
@@ -1462,6 +1462,35 @@ async function initUI() {
         }
     }
 
+    async function uploadAttachment(file) {
+        const u = config[3]?.Media?.[0]?.state;
+        const m = config[3]?.Media?.[1]?.state;
+        if (!u) {
+            notif("You do not have a media CDN configured! Configure one in Settings (ctrl/cmd + ,) > Media > CDN server", `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-triangle-alert-icon lucide-triangle-alert"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`);
+            return;
+        }
+
+        try {
+            const arr = await file.arrayBuffer();
+            const r = await fetch(u, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/octet-stream"
+                },
+                body: arr
+            });
+            if (r.ok) {
+                const d = await r.json();
+                if (!d.ok) throw new Error("CDN server error");
+                const u = d.url || d.path || "";
+                return u.startsWith("http") ? u : m + u;
+            } else {
+                throw new Error("CDN server returned non-ok response");
+            }
+        } catch (e) {
+            notif("Failed to upload attachment! " + e.message, `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-triangle-alert-icon lucide-triangle-alert"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`);
+        }
+    }
 
     async function openChannel(name, id, perms) {
         const vc = channelSidebar.querySelector("#voice-" + id);
@@ -1544,35 +1573,49 @@ async function initUI() {
             streamButton.classList.add("vcStreamButton");
             streamButton.textContent = "Share your screen";
             streamButton.onclick = async () => {
-                if (streamButton.textContent =="Share your screen") {
+                if (streamButton.textContent == "Share your screen") {
                     try {
-                        const sourceId = await window.electronAPI.getScreenSourceId()
+                        const sources = await window.electronAPI.getScreenSources();
+                        const bg = document.createElement("div");
+                        bg.classList.add("streamSourceChooserBackground");
+                        const d = document.createElement("div");
+                        d.classList.add("streamSourceChooserContainer");
+                        for (const s of sources) {
+                            const stream = await navigator.mediaDevices.getUserMedia({
+                                video: {
+                                    mandatory: {
+                                        chromeMediaSource: 'desktop',
+                                        chromeMediaSourceId: s.id
+                                    }
+                                },
+                                audio: false
+                            });
+                            const e = document.createElement("video");
+                            e.classList.add("streamSourceChooserItem");
+                            e.playsInline = true;
+                            e.autoplay = true;
+                            e.muted = true;
+                            e.srcObject = stream;
+                            e.onclick = () => {
+                                voice.setVideoStream(stream);
 
-                        const stream = await navigator.mediaDevices.getUserMedia({
-                            video: {
-                                mandatory: {
-                                    chromeMediaSource: 'desktop',
-                                    chromeMediaSourceId: sourceId,
-                                }
-                            },
-                            audio: false
-                        });
+                                const existing = document.getElementById('local-stream')
+                                if (existing) existing.remove()
 
-                        voice.setVideoStream(stream);
+                                const el = document.createElement('video')
+                                el.id = 'local-stream'
+                                el.playsInline = true
+                                el.autoplay = true
+                                el.muted = true
+                                el.srcObject = stream
+                                el.classList.add('vcStream')
+                                document.querySelector('.vcStreamContainer')?.appendChild(el)
 
-                        const existing = document.getElementById('local-stream')
-                        if (existing) existing.remove()
-
-                        const el = document.createElement('video')
-                        el.id = 'local-stream'
-                        el.playsInline = true
-                        el.autoplay = true
-                        el.muted = true
-                        el.srcObject = stream
-                        el.classList.add('vcStream')
-                        document.querySelector('.vcStreamContainer')?.appendChild(el)
-
-                        streamButton.textContent = "Stop sharing";
+                                streamButton.textContent = "Stop sharing";
+                            }
+                            d.append(e);
+                        }
+                        bg.append(d);
                     } catch (e) {
                         console.error(e.name, e.message)
                         streamButton.textContent = "Failed to share screen"
@@ -1673,7 +1716,45 @@ async function initUI() {
             document.execCommand("insertLineBreak");
             chatInputUpdate();
         }
-    })
+    });
+
+    chatInput.addEventListener("paste", async(e) => {
+        const i = e.clipboardData?.items;
+        if (!i) return;
+        for (const it of i) {
+            if (it.type.startsWith('image/')) {
+                e.preventDefault();
+                chatInput.disabled = true;
+                try {
+                    const f = it.getAsFile();
+                    if (!f) continue;
+                    const u = await uploadAttachment(f);
+                    if (u) chatInput.value = chatInput.value + " " + u
+                } catch (e) { console.error(e); };
+                chatInput.disabled = false;
+                break;
+            }
+        }
+    });
+
+    window.addEventListener("dragover", (e) => {
+        e.preventDefault();
+    });
+
+    window.addEventListener("drop", async(e) => {
+        e.preventDefault();
+
+        const f = e.dataTransfer.files?.[0];
+        e.target.value = "";
+        if (!f) return;
+        if (f.type.startsWith('image/')) {
+            try {
+                const u = await uploadAttachment(f);
+                if (u) chatInput.value = chatInput.value + " " + u
+            } catch (e) { console.error(e); };
+        } else console.warn("Only image files allowed!");
+    });
+
 
     function chatInputUpdate() {
         if (!lastTypePacket || lastTypePacket + 5000 < Date.now()) {

@@ -892,3 +892,7 @@ pre {
 .vcButtonContainer {
     display: flex;
 }
+
+.attachmentInput {
+    display: none;
+}

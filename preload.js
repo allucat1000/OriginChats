@@ -3,5 +3,5 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   windowControl: (action) => ipcRenderer.send('window-control', action),
   login: () => ipcRenderer.invoke("login"),
-  getScreenSourceId: () => ipcRenderer.invoke('get-screen-stream-id')
+  getScreenSources: () => ipcRenderer.invoke('get-screen-stream-sources')
 });

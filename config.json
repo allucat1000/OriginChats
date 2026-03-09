@@ -32,5 +32,23 @@
                 "inputPlaceholder":"Leave empty for default TURN server"
             }
         ]
+    },
+    {
+        "Media": [
+            {
+                "name":"CDN server",
+                "description":"The server that attachments are uploaded to",
+                "type":"input",
+                "state":"https://roturcdn.milosantos.com/api/image/upload",
+                "inputPlaceholder":"https://cdn.example.com/upload"
+            },
+            {
+                "name":"CDN server main address",
+                "description":"The address that attachments are fetched from",
+                "type":"input",
+                "state":"https://roturcdn.milosantos.com/",
+                "inputPlaceholder":"https://cdn.example.com/images/"
+            }
+        ]
     }
 ]

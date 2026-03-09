@@ -41,9 +41,9 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('get-screen-stream-id', async () => {
+  ipcMain.handle('get-screen-stream-sources', async () => {
     const sources = await desktopCapturer.getSources({ types: ['screen'] })
-    return sources[0].id
+    return sources;
   })
   
   ipcMain.handle("login", async () => {
