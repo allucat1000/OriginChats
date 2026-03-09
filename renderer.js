@@ -2,6 +2,8 @@ const { app, BrowserWindow, ipcMain, shell, desktopCapturer, Tray, Menu } = requ
 const path = require('path');
 
 let tray;
+let quitting = false;
+
 app.whenReady().then(() => {
   const win = new BrowserWindow({
     width: 1680,
@@ -31,6 +33,17 @@ app.whenReady().then(() => {
 
   tray.on("click", () => {
     win.isVisible() ? win.hide() : win.show();
+  });
+
+  app.on("before-quit", () => {
+    quitting = true;
+  });
+
+  win.on("close", (event) => {
+    if (!quitting) {
+      event.preventDefault();
+      win.hide();
+    }
   });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
