@@ -1631,6 +1631,7 @@ async function initUI() {
                             e.srcObject = stream;
                             t.textContent = s.name.length > 30 ? s.name.slice(0, 30) + "..." : s.name;
                             e.onclick = () => {
+                                document.removeEventListener("keydown", k);
                                 voice.setVideoStream(stream);
 
                                 const existing = document.getElementById("local-stream");
