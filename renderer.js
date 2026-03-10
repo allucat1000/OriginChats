@@ -1,5 +1,8 @@
 const { app, BrowserWindow, ipcMain, shell, desktopCapturer, Tray, Menu } = require('electron');
 const path = require('path');
+const { initMain, getLoopbackAudioMediaStream } = require('electron-audio-loopback');
+
+initMain();
 
 let tray;
 let quitting = false;

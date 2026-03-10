@@ -167,7 +167,9 @@ export class Voice {
     }
 
     setupCallHandlers(call, id) {
-        call.on("stream", stream => this.addStream(stream, id));
+        call.on("stream", stream => {
+            this.addStream(stream, id);
+        });
         call.on("close", () => this.removePeer(id));
         call.on("error", () => this.removePeer(id));
     }
@@ -202,6 +204,13 @@ export class Voice {
         this.connections.delete(id);
     }
 
+    isValidVideoStream(stream) {
+        const videoTracks = stream.getVideoTracks();
+        if (!videoTracks.length) return false;
+
+        return videoTracks.some(track => track.readyState === 'live' && track.enabled);
+    }
+
     async setVideoStream(stream) {
         const closePromises = [];
         this.videoCalls.forEach(c => {
@@ -226,6 +235,7 @@ export class Voice {
             if (peerId === this.id) return; 
             const vcall = this.peer.call(peerId, stream, { metadata: { video: true } });
             vcall.on("stream", s => {
+                if (!isValidVideoStream(s)) return;
                 const old = document.getElementById(`strm-${peerId}`);
                 if (old) old.remove();
                 this.videoStreams.set(peerId, s);

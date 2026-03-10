@@ -874,7 +874,7 @@ async function deleteMessage(data) {
     el.remove();
     const msgs = [...messageArea.children].reverse();
     const newest = messageStore["count-" + Number(msgs[0].id.split("-")[1])];
-    lastUser = newest.data.user;
+    lastUser = newest?.data?.user;
 }
 
 async function editMessage(data) {
@@ -1535,6 +1535,24 @@ async function initUI() {
     }
     window.openChannel = openChannel;
 
+    async function getLoopbackAudioMediaStream() {
+        await window.electronAPI.enableLoopbackAudio();
+
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: true
+        });
+
+        stream.getVideoTracks().forEach(track => {
+            track.stop();
+            stream.removeTrack(track);
+        });
+
+        await window.electronAPI.disableLoopbackAudio();
+
+        return stream;
+    }
+
     async function openVoice(vc) {
         currentChannelType = "voice";
         if (!voice.currentVC || voice.currentVC == vc) {
@@ -1598,10 +1616,10 @@ async function initUI() {
                         const d = document.createElement("div");
                         d.classList.add("streamSourceChooserContainer");
                         mainDiv.append(bg);
-                        const streams = [];
+                        const sourceStreams = [];
                         const k = (e) => {
                             if (e.key === "Escape") {
-                                streams.forEach(stream => stream.getTracks().forEach(track => track.stop()));
+                                sourceStreams.forEach(stream => stream.getTracks().forEach(track => track.stop()));
                                 bg.remove();
                                 document.removeEventListener("keydown", k);
                             }
@@ -1618,7 +1636,7 @@ async function initUI() {
                                 },
                                 audio: false
                             });
-                            streams.push(stream);
+                            sourceStreams.push(stream);
                             const c = document.createElement("div");
                             c.classList.add("streamSourceChooserItemDiv");
                             const e = document.createElement("video");
@@ -1630,34 +1648,44 @@ async function initUI() {
                             e.muted = true;
                             e.srcObject = stream;
                             t.textContent = s.name.length > 30 ? s.name.slice(0, 30) + "..." : s.name;
-                            e.onclick = () => {
+                            e.onclick = async () => {
                                 document.removeEventListener("keydown", k);
-                                voice.setVideoStream(stream);
+
+                                const audioStream = await getLoopbackAudioMediaStream();
+
+                                const combinedStream = new MediaStream(stream.getVideoTracks());
+                                audioStream.getAudioTracks().forEach(track => combinedStream.addTrack(track));
+
+                                voice.setVideoStream(combinedStream);
 
                                 const existing = document.getElementById("local-stream");
-                                if (existing) existing.remove()
+                                if (existing) existing.remove();
 
                                 const el = document.createElement("video");
                                 el.id = "local-stream";
-                                el.playsInline = true
-                                el.autoplay = true
-                                el.muted = true
-                                el.srcObject = stream
-                                el.classList.add("vcStream")
+                                el.playsInline = true;
+                                el.autoplay = true;
+                                el.muted = true;
+                                el.srcObject = combinedStream;
+                                el.classList.add("vcStream");
                                 document.querySelector(".vcStreamContainer")?.appendChild(el);
-                                stream.getTracks().forEach(t => {
+
+                                sourceStreams.forEach(s => {
+                                    if (s !== stream) s.getTracks().forEach(track => track.stop());
+                                });
+
+                                streamButton.textContent = "Stop sharing";
+                                bg.remove();
+
+                                combinedStream.getTracks().forEach(t => {
                                     t.addEventListener("ended", () => {
                                         if (streamButton.textContent === "Stop sharing") {
                                             streamButton.textContent = "Share your screen";
                                             voice.stopVideoStream();
                                         }
                                     });
-                                })
-                                streams.forEach(s => { if (s !== stream) s.getTracks().forEach(track => track.stop()) });
-
-                                streamButton.textContent = "Stop sharing";
-                                bg.remove();
-                            }
+                                });
+                            };
                             c.append(e, t);
                             d.append(c);
                         }

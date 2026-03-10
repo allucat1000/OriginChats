@@ -16,6 +16,7 @@
     "electron-builder": "^26.7.0"
   },
   "dependencies": {
+    "electron-audio-loopback": "^1.0.6",
     "electron-squirrel-startup": "^1.0.1"
   },
   "build": {
