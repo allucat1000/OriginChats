@@ -1470,6 +1470,8 @@ async function initUI() {
             return;
         }
 
+        notif("Uploading attachment...", `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-upload-icon lucide-upload"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>`);
+
         try {
             const arr = await file.arrayBuffer();
             const r = await fetch(u, {
@@ -1571,7 +1573,22 @@ async function initUI() {
             };
             const streamButton = document.createElement("button");
             streamButton.classList.add("vcStreamButton");
-            streamButton.textContent = "Share your screen";
+            if (voice.videoStream) {
+                streamButton.textContent = "Stop sharing";
+
+                if (!document.getElementById("local-stream")) {
+                    const el = document.createElement("video");
+                    el.id = "local-stream";
+                    el.playsInline = true;
+                    el.autoplay = true;
+                    el.muted = true;
+                    el.srcObject = voice.videoStream;
+                    el.classList.add("vcStream");
+                    streams.appendChild(el);
+                }
+            } else {
+                streamButton.textContent = "Share your screen";
+            }
             streamButton.onclick = async () => {
                 if (streamButton.textContent == "Share your screen") {
                     try {
@@ -1580,40 +1597,68 @@ async function initUI() {
                         bg.classList.add("streamSourceChooserBackground");
                         const d = document.createElement("div");
                         d.classList.add("streamSourceChooserContainer");
+                        mainDiv.append(bg);
+                        const streams = [];
+                        const k = (e) => {
+                            if (e.key === "Escape") {
+                                streams.forEach(stream => stream.getTracks().forEach(track => track.stop()));
+                                bg.remove();
+                                document.removeEventListener("keydown", k);
+                            }
+                        };
+                        document.addEventListener("keydown", k);
+
                         for (const s of sources) {
                             const stream = await navigator.mediaDevices.getUserMedia({
                                 video: {
                                     mandatory: {
-                                        chromeMediaSource: 'desktop',
+                                        chromeMediaSource: "desktop",
                                         chromeMediaSourceId: s.id
                                     }
                                 },
                                 audio: false
                             });
+                            streams.push(stream);
+                            const c = document.createElement("div");
+                            c.classList.add("streamSourceChooserItemDiv");
                             const e = document.createElement("video");
                             e.classList.add("streamSourceChooserItem");
+                            const t = document.createElement("p");
+                            t.classList.add("streamSourceChooserItemTitle");
                             e.playsInline = true;
                             e.autoplay = true;
                             e.muted = true;
                             e.srcObject = stream;
+                            t.textContent = s.name.length > 30 ? s.name.slice(0, 30) + "..." : s.name;
                             e.onclick = () => {
                                 voice.setVideoStream(stream);
 
-                                const existing = document.getElementById('local-stream')
+                                const existing = document.getElementById("local-stream");
                                 if (existing) existing.remove()
 
-                                const el = document.createElement('video')
-                                el.id = 'local-stream'
+                                const el = document.createElement("video");
+                                el.id = "local-stream";
                                 el.playsInline = true
                                 el.autoplay = true
                                 el.muted = true
                                 el.srcObject = stream
-                                el.classList.add('vcStream')
-                                document.querySelector('.vcStreamContainer')?.appendChild(el)
+                                el.classList.add("vcStream")
+                                document.querySelector(".vcStreamContainer")?.appendChild(el);
+                                stream.getTracks().forEach(t => {
+                                    t.addEventListener("ended", () => {
+                                        if (streamButton.textContent === "Stop sharing") {
+                                            streamButton.textContent = "Share your screen";
+                                            voice.stopVideoStream();
+                                        }
+                                    });
+                                })
+                                streams.forEach(s => { if (s !== stream) s.getTracks().forEach(track => track.stop()) });
 
                                 streamButton.textContent = "Stop sharing";
+                                bg.remove();
                             }
-                            d.append(e);
+                            c.append(e, t);
+                            d.append(c);
                         }
                         bg.append(d);
                     } catch (e) {
@@ -1659,7 +1704,7 @@ async function initUI() {
                 p.src = await getPfp(u.username);
                 users.append(p);
             }
-            console.log(voice.users);
+        
         } else if (voice.currentVC) {
             await voice.leave();
             openVoice(vc);

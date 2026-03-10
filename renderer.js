@@ -70,7 +70,7 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('get-screen-stream-sources', async () => {
-    const sources = await desktopCapturer.getSources({ types: ['screen'] })
+    const sources = await desktopCapturer.getSources({ types: ["screen", "window"], thumbnailSize: { width: 320, height: 180 } });
     return sources;
   })
   
