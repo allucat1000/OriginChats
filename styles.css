@@ -953,3 +953,8 @@ pre {
     border-radius: 5px;
     border: rgba(120, 120, 120, 0.5) solid 1px;
 }
+
+.smallText {
+    font-weight: normal;
+    color: gray;
+}
