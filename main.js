@@ -537,41 +537,44 @@ async function buildMessage(msg, group, old = false) {
         while (!tempData) {
             await new Promise((r) => setTimeout(r, 1));
         }
-        const img = document.createElement("img");
-        const un = tempData.user
-        getPfp(un).then((d) => img.src = d);
-        img.onclick = () => previewProfile(un);
-        img.classList.add("messageReplyPreviewPfp");
+        if (JSON.stringify(tempData) !== "{}") {
+            const img = document.createElement("img");
+            const un = tempData.user
+            getPfp(un).then((d) => img.src = d);
+            img.onclick = () => previewProfile(un);
+            img.classList.add("messageReplyPreviewPfp");
 
-        const user = document.createElement("p");
-        user.onclick = () => previewProfile(un);
-        user.textContent = tempData.user;
-        if (userColors[tempData.user])
-            user.style.color = userColors[tempData.user];
-        
-        user.classList.add("messageReplyPreviewUsername");
-        const text = document.createElement("p");
-        const c = tempData.content;
-        if (typeof blockedUsers === "object" && blockedUsers.includes(msg.reply_to.user)) {
-            text.textContent = "Blocked message...";
-        } else {
-            if (c.length > 60)
-                text.textContent = c.slice(0, 60) + "...";
-            else
-                text.textContent = c;
-            text.onclick = () => jumpToMsg(msg.reply_to.id);
+            const user = document.createElement("p");
+            user.onclick = () => previewProfile(un);
+            user.textContent = tempData.user;
+            if (userColors[tempData.user])
+                user.style.color = userColors[tempData.user];
+            
+            user.classList.add("messageReplyPreviewUsername");
+            const text = document.createElement("p");
+            const c = tempData.content;
+            if (typeof blockedUsers === "object" && blockedUsers.includes(msg.reply_to.user)) {
+                text.textContent = "Blocked message...";
+            } else {
+                if (c.length > 60)
+                    text.textContent = c.slice(0, 60) + "...";
+                else
+                    text.textContent = c;
+                text.onclick = () => jumpToMsg(msg.reply_to.id);
+            }
+
+            text.classList.add("messageReplyPreviewText");
+            if (un === "Deleted message...") {
+                replyDiv.append(user);
+                user.style.marginLeft = "2.66em";
+                user.style.opacity = "0.5";
+                user.onclick = () => {};
+                user.style.cursor = "default";
+            } else   
+                replyDiv.append(img, user, text);
+
         }
-
-        text.classList.add("messageReplyPreviewText");
-        if (un === "Deleted message...") {
-            replyDiv.append(user);
-            user.style.marginLeft = "2.66em";
-            user.style.opacity = "0.5";
-            user.onclick = () => {};
-            user.style.cursor = "default";
-        } else   
-            replyDiv.append(img, user, text);
-
+        
         tempData = null;
     }
 
@@ -944,6 +947,9 @@ function initFuncs() {
             return;
         }
         const cmd = data.cmd ?? data.type;
+
+        if (JSON.stringify(data) === "{}") tempData = {}; // why..
+
         switch (cmd) {
             case "handshake":
                 serverInfo = {

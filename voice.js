@@ -230,12 +230,25 @@ export class Voice {
 
         await Promise.all(closePromises);
 
+        this.videoStreams.forEach((existingStream, peerId) => {
+            if (!document.getElementById(`strm-${peerId}`)) {
+                const el = document.createElement("video");
+                el.id = `strm-${peerId}`;
+                el.playsInline = true;
+                el.autoplay = true;
+                el.controls = false;
+                el.srcObject = existingStream;
+                el.classList.add("vcStream");
+                document.querySelector(".vcStreamContainer")?.appendChild(el);
+            }
+        });
+
         this.users.forEach((peerId) => {
             if (!this.peer || !peerId) return;
             if (peerId === this.id) return; 
             const vcall = this.peer.call(peerId, stream, { metadata: { video: true } });
             vcall.on("stream", s => {
-                if (!isValidVideoStream(s)) return;
+                if (!this.isValidVideoStream(s)) return;
                 const old = document.getElementById(`strm-${peerId}`);
                 if (old) old.remove();
                 this.videoStreams.set(peerId, s);
