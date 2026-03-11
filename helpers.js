@@ -65,6 +65,8 @@ function parseMarkdown(text) {
 
         line = line.replace(/\*\*(.+?)\*\*/g, `<span style="font-weight: bold;">$1</span>`);
 
+        line = line.replace(/`(.+?)`/g, `<code class="inlineCode">$1</code>`);
+
         line = line.replace(/_(.+?)_/g, `<span style="font-style: italic;">$1</span>`);
 
         line = line.replace(/(?<!<)https?:\/\/[^\s<]+/g, url => {

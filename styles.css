@@ -945,3 +945,11 @@ pre {
 .streamSourceChooserItemTitle {
     color: white;
 }
+
+.inlineCode {
+    background: rgba(30, 30, 30, 0.7);
+    padding: 5px;
+    display: inline;
+    border-radius: 5px;
+    border: rgba(120, 120, 120, 0.5) solid 1px;
+}
