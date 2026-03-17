@@ -388,6 +388,10 @@ pre {
 
 .messageEmbeds {
     margin-left: 2.75em;
+    display: flex;
+    gap: 0.25em;
+    flex-direction: row;
+    flex-wrap: wrap;
 }
 
 .messageEmbedsUsed {
@@ -967,6 +971,7 @@ pre {
     border-radius: 5px;
     background-color: rgba(55, 55, 55, 0.5);
     border: rgba(120, 120, 120, 0.5) solid 1px;
+    cursor: pointer;
 }
 
 .commandOptionDescription {
@@ -1017,4 +1022,33 @@ pre {
     border: rgba(120, 120, 120, 0.5) solid 1px;
     width: 15em;
     color: white;
+}
+
+.spoilerText input {
+  display: none;
+}
+
+.spoilerText span {
+  background-color: rgb(45, 45, 45);
+  color: transparent;
+  cursor: pointer;
+  border-radius: 5px;
+  padding: 2px;
+}
+
+.spoilerText input:checked + span {
+  background: none;
+  color: inherit;
+  cursor: initial;
+}
+
+.spoilerText span:hover {
+  background-color: rgb(60, 60, 60);
+}
+
+.spoilerText:has(input:checked) {
+  background-color: rgb(30, 30, 30);
+  border-radius: 5px;
+  border: rgba(120, 120, 120, 0.5) solid 1px;
+  padding: 2px;
 }

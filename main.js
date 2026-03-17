@@ -34,6 +34,7 @@ let ratelimit = {};
 let messageScroll = 0;
 let userColors = {};
 let userList = [];
+let tempMsgData = {}
 
 let pings = {};
 let reactedMessages = {};
@@ -409,6 +410,18 @@ function getDisplayName(user) {
     return u?.nickname ?? user;
 }
 
+async function getMessageData(id) {
+    return await new Promise(async(r) => {
+        if (!messageStore[id]) {
+            ws.send(`{"cmd":"message_get","channel":"${currentChannel}","id":"${id}"}`);
+            while (!messageStore[id]) {
+                await new Promise((r) => setTimeout(r, 1));
+            }
+        }
+        r(messageStore[id].data);
+    })
+}
+
 async function buildMessage(msg, group, old = false) {
     let blockedUsers = config?.[1]?.Social?.[0]?.state;
     if (blockedUsers !== undefined && blockedUsers !== false) {
@@ -542,27 +555,34 @@ async function buildMessage(msg, group, old = false) {
     replyDiv.classList.add("messageReplyPreviewDiv");
 
     if (msg.reply_to) {
-        ws.send(`{"cmd":"message_get","channel":"${currentChannel}","id":"${msg.reply_to.id}"}`);
-        while (!tempData) {
-            await new Promise((r) => setTimeout(r, 1));
-        }
-        if (JSON.stringify(tempData) !== "{}") {
-            const img = document.createElement("img");
-            const un = tempData.user
+        const img = document.createElement("img");
+        let un = "throwaway";
+        img.classList.add("messageReplyPreviewPfp");
+
+        const user = document.createElement("p");
+        user.classList.add(`user-${un}`);
+        user.textContent = "Loading message...";
+        user.style.marginLeft = "2.66em";
+        user.style.opacity = "0.5";
+        user.onclick = () => {};
+        user.style.cursor = "default";
+        
+        const text = document.createElement("p");
+
+        text.classList.add("messageReplyPreviewText");
+
+        getMessageData(msg.reply_to.id).then((data) => {
+            un = data.user;
             getPfp(un).then((d) => img.src = d);
             img.onclick = () => previewProfile(un);
-            img.classList.add("messageReplyPreviewPfp");
-
-            const user = document.createElement("p");
-            user.classList.add(`user-${un}`);
             user.onclick = () => previewProfile(un);
-            user.textContent = getDisplayName(tempData.user);
-            if (userColors[tempData.user])
-                user.style.color = userColors[tempData.user];
+            user.textContent = getDisplayName(data.user);
+            if (userColors[data.user])
+                user.style.color = userColors[data.user];
             
             user.classList.add("messageReplyPreviewUsername");
-            const text = document.createElement("p");
-            const c = tempData.content;
+
+            const c = data.content;
             if (typeof blockedUsers === "object" && blockedUsers.includes(msg.reply_to.user)) {
                 text.textContent = "Blocked message...";
             } else {
@@ -573,19 +593,17 @@ async function buildMessage(msg, group, old = false) {
                 text.onclick = () => jumpToMsg(msg.reply_to.id);
             }
 
-            text.classList.add("messageReplyPreviewText");
-            if (un === "Deleted message...") {
-                replyDiv.append(user);
-                user.style.marginLeft = "2.66em";
-                user.style.opacity = "0.5";
-                user.onclick = () => {};
-                user.style.cursor = "default";
-            } else   
-                replyDiv.append(img, user, text);
+            if (un !== "Deleted message...") {
+                user.style.marginLeft = "0";
+                user.style.opacity = "1";
+                replyDiv.prepend(img);
+                replyDiv.append(text);
+            } 
 
-        }
+        });
 
-        tempData = null;
+        replyDiv.append(user);
+
     }
 
     const commandDiv = document.createElement("div");
@@ -787,6 +805,7 @@ function renderUserlist(list) {
         const name = document.createElement("p");
         name.classList.add("userListName");
         name.textContent = getDisplayName(u.username);
+        name.classList.add(`user-${u.username}`);
         div.append(icon, name);
         added.push(u.username);
         userListDiv.append(div);
@@ -985,8 +1004,6 @@ function initFuncs() {
         }
         const cmd = data?.cmd ?? data?.type;
 
-        if (JSON.stringify(data) === "{}") tempData = {}; // why..
-
         switch (cmd) {
             case "handshake":
                 serverInfo = {
@@ -1077,7 +1094,7 @@ function initFuncs() {
                 break;
 
             case "message_get":
-                tempData = { channel: data.channel, ...data.message }
+                messageStore[data.message.id] = { el: null, data: { channel: data.channel, ...data.message } };
                 break;
 
             case "messages_search":
@@ -1464,6 +1481,7 @@ async function initUI() {
     })
 
     ws.send('{"cmd":"roles_list"}');
+    ws.send('{"cmd":"slash_list"}');
     ws.send('{"cmd":"channels_get"}');
     while (!channels) {
         await new Promise((r) => setTimeout(r, 50));
@@ -1842,6 +1860,7 @@ async function initUI() {
 
     function updateTopData() {
         requestAnimationFrame(() => {
+            console.log(slashCommands)
             let li = document.querySelector(".commandList");
             if (!li) {
                 li = document.createElement("div");

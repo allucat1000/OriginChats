@@ -72,6 +72,8 @@ function parseMarkdown(text) {
 
         line = line.replace(/\*\*(.+?)\*\*/g, `<span style="font-weight: bold;">$1</span>`);
 
+        line = line.replace(/\|\|(.+?)\|\|/g, `<label class="spoilerText"><input type="checkbox" onclick="this.disabled = true"><span>$1</span></label>`);
+
         line = line.replace(/`(.+?)`/g, `<code class="inlineCode">$1</code>`);
         line = line.replace(/^-#\s*(.+)$/gm, `<h6 class="smallText">$1</h6>`);
 
@@ -129,7 +131,7 @@ function parseMarkdown(text) {
     return DOMPurify.sanitize(parsed, {
         ALLOWED_TAGS: [
             "h1","h2","h3","h4","h5","h6",
-            "span","pre","code","a"
+            "span","pre","code","a","label","input"
         ],
         ALLOWED_ATTR: [
             "style",
@@ -137,7 +139,8 @@ function parseMarkdown(text) {
             "class",
             "href",
             "target",
-            "rel"
+            "rel",
+            "type"
         ]
     });
 }
