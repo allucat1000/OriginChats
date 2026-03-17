@@ -528,7 +528,7 @@ async function buildMessage(msg, group, old = false) {
 
     hoverMenu.append(reactMessage, idMessage, editMessage, replyMessage, deleteMessage);
     
-    text.innerHTML = parseMarkdown(msg.content);
+    text.innerHTML = parseMarkdown(msg.content) + (msg.edited ? '<p class="editIndicator"> (edited)</p>' : "");
     div.classList.add("message");
     userDiv.classList.add("userDiv");
     username.classList.add("username");
@@ -595,7 +595,8 @@ async function buildMessage(msg, group, old = false) {
 
             if (un !== "Deleted message...") {
                 user.style.marginLeft = "0";
-                user.style.opacity = "1";
+                user.style.opacity = "0.7";
+                user.style.cursor = "pointer";
                 replyDiv.prepend(img);
                 replyDiv.append(text);
             } 
@@ -791,7 +792,7 @@ function renderUserlist(list) {
     userListDiv.innerHTML = "";
     const onlineTitle = document.createElement("h3");
     onlineTitle.classList.add("userListTitle");
-    onlineTitle.textContent = "Online";
+    onlineTitle.textContent = `Online — ${list.length}`;
     userListDiv.append(onlineTitle)
     for (const u of list) {
         if (!u?.username || added.includes(u.username))
@@ -812,7 +813,7 @@ function renderUserlist(list) {
     }
     const offlineTitle = document.createElement("h3");
     offlineTitle.classList.add("userListTitle");
-    offlineTitle.textContent = "Offline";
+    offlineTitle.textContent = `Offline — ${userList.filter(u => !added.includes(u?.username)).length}`;
     userListDiv.append(offlineTitle);
     for (const u of userList) {
         if (!u?.username || added.includes(u.username))
@@ -942,7 +943,7 @@ async function editMessage(data) {
     updatedMsgs[data.id] = data.content;
     if (!el) throw new Error(`Unable to edit message with ID '${data.id}'`);
     const text = el.querySelector(".messageContent");
-    if (text) text.innerHTML = parseMarkdown(data.content);
+    if (text) text.innerHTML = parseMarkdown(data.content) + '<p class="editIndicator"> (edited)</p>';
     requestAnimationFrame(() => {
         text.querySelectorAll('pre code').forEach(block => {
             try { hljs.highlightElement(block); } catch {}
@@ -1860,7 +1861,6 @@ async function initUI() {
 
     function updateTopData() {
         requestAnimationFrame(() => {
-            console.log(slashCommands)
             let li = document.querySelector(".commandList");
             if (!li) {
                 li = document.createElement("div");
@@ -2119,7 +2119,7 @@ async function initUI() {
         const f = e.dataTransfer.files?.[0];
         e.target.value = "";
         if (!f) return;
-        if (f.type.startsWith('image/')) {
+        if (f.type.startsWith("image/") || f.type.startsWith("video/")) {
             try {
                 chatInput.disabled = true;
                 const u = await uploadAttachment(f);

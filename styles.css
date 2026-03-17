@@ -1052,3 +1052,9 @@ pre {
   border: rgba(120, 120, 120, 0.5) solid 1px;
   padding: 2px;
 }
+
+.editIndicator {
+    display: inline;
+    font-size: 0.7em;
+    color: gray;
+}
