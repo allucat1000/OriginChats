@@ -1,8 +1,8 @@
-import { parseMarkdown, checkPermissions, getImage, getPfp, replaceShortcodes, notif } from "./helpers.js";
+import { parseMarkdown, checkPermissions, getImage, getPfp, replaceShortcodes, notif, checkPermissionCustom } from "./helpers.js";
 import { openSettings, closeSettings, settingsOpen } from "./settings.js";
 import { Voice } from "./voice.js"
 
-export { mainDiv, userData, shortCodes, currentPermissions, config, messageArea, channels, userList };
+export { mainDiv, userData, shortCodes, currentPermissions, config, messageArea, channels, userList, roles, currentServer };
 
 const mac = navigator.platform.toUpperCase().includes("MAC");
 if (!mac) document.body.style.backgroundColor = "rgb(0, 0, 0, 0.9)";
@@ -23,9 +23,11 @@ if (Object.keys(config).length === 0) {
     localStorage.setItem("config", JSON.stringify(config));
 }
 export let ws;
-let token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData, lastTypePacket, typingCleanup, pins, searchResults, vcMembers, voice, currentChannelType;
+let token, valKey, serverInfo, auth, userData, channels, messages, lastUser, lastDate, url, profilePreviewDiv, previewBg, lastPing, currentChannel, openingPopup, currentPermissions, messageList, tempData, lastTypePacket, typingCleanup, pins, searchResults, vcMembers, voice, currentChannelType, currentServer;
 let typing = [];
 const chatInput = document.getElementById("chatInput");
+let roles = {};
+let slashCommands = [];
 let messageHandling = {};
 let updatedMsgs = {};
 let ratelimit = {};
@@ -120,7 +122,7 @@ async function previewProfile(name) {
             bioSplitter.classList.add("borderSplitter");
             pfp.src = await getPfp(name);
             bio.textContent = data.bio;
-            username.textContent = data.username;
+            username.textContent = "@" + data.username;
             userDiv.classList.add("profileUserDiv");
             nameDiv.append(username, pronouns)
             userDiv.append(pfp, nameDiv);
@@ -165,6 +167,7 @@ async function connect(url) {
         serverSelect();
         return;
     }
+    currentServer = url;
     try {
         ws = new WebSocket(url);
     } catch {
@@ -250,7 +253,7 @@ async function checkPing(msg) {
                 let channelPings = pings[msg.channel];
                 if (channelPings == undefined) channelPings = 0;
                 pings[msg.channel] = ++channelPings;
-                const channelDiv = channelSidebar.querySelector("#channel-" + msg.channel);
+                const channelDiv = channelSidebar.querySelector("#text-" + msg.channel);
                 if (channelDiv) channelDiv.textContent = "#" + msg.channel + ` (${channelPings})`;
             }
         }
@@ -401,6 +404,11 @@ async function generateEmbed(url) {
     return container;
 }
 
+function getDisplayName(user) {
+    const u = userList.find(r => r.username === user);
+    return u?.nickname ?? user;
+}
+
 async function buildMessage(msg, group, old = false) {
     let blockedUsers = config?.[1]?.Social?.[0]?.state;
     if (blockedUsers !== undefined && blockedUsers !== false) {
@@ -518,7 +526,8 @@ async function buildMessage(msg, group, old = false) {
     time.textContent = formatDate(msg.timestamp);
     if (userColors[msg.user])
         username.style.color = userColors[msg.user];
-    username.textContent = msg.user;
+    username.classList.add(`user-${msg.user}`);    
+    username.textContent = getDisplayName(msg.user);
     userPfp.src = "";
     getPfp(msg.user).then(src => userPfp.src = src);
     userPfp.onclick = () => previewProfile(msg.user);
@@ -545,8 +554,9 @@ async function buildMessage(msg, group, old = false) {
             img.classList.add("messageReplyPreviewPfp");
 
             const user = document.createElement("p");
+            user.classList.add(`user-${un}`);
             user.onclick = () => previewProfile(un);
-            user.textContent = tempData.user;
+            user.textContent = getDisplayName(tempData.user);
             if (userColors[tempData.user])
                 user.style.color = userColors[tempData.user];
             
@@ -574,17 +584,44 @@ async function buildMessage(msg, group, old = false) {
                 replyDiv.append(img, user, text);
 
         }
-        
+
         tempData = null;
+    }
+
+    const commandDiv = document.createElement("div");
+    commandDiv.classList.add("messageReplyPreviewDiv");
+
+    if (msg.interaction) {
+        const img = document.createElement("img");
+        const un = msg.interaction.username;
+        getPfp(un).then((d) => img.src = d);
+        img.onclick = () => previewProfile(un);
+        img.classList.add("messageReplyPreviewPfp");
+
+        const user = document.createElement("p");
+        user.classList.add(`user-${un}`);
+        user.onclick = () => previewProfile(un);
+        user.textContent = getDisplayName(un);
+        if (userColors[un])
+            user.style.color = userColors[un];
+        
+        user.classList.add("messageReplyPreviewUsername");
+        const text = document.createElement("p");
+        text.classList.add("messageReplyPreviewText");
+        text.textContent = `/${msg.interaction.command}`;
+        commandDiv.append(img, user, text);
     }
 
     if (group) {
         div.append(hoverMenu, text, embeds, emojis);
     } else {
-        if (msg.reply_to)
-            div.append(hoverMenu, replyDiv, userDiv, text, embeds, emojis);
-        else
-            div.append(hoverMenu, userDiv, text, embeds, emojis);
+        div.append(hoverMenu)
+        if (msg.interaction)
+            div.append(commandDiv)
+        else if (msg.reply_to)
+            div.append(replyDiv);
+        
+            div.append(userDiv, text, embeds, emojis);
     }
 
     const id = nextMessageCount++;
@@ -690,7 +727,7 @@ async function newMsg(msg, old = false, f, jump = true) {
     let obj
     
     let appendSplit = false;
-    if ((old ? messageList[nextMessageCount + 1]?.user == msg.user : lastUser == msg.user) && (checkDates(old ? messageList[nextMessageCount + 1]?.timestamp : lastDate, msg.timestamp)) && !msg.reply_to)
+    if ((old ? messageList[nextMessageCount + 1]?.user == msg.user : lastUser == msg.user) && (checkDates(old ? messageList[nextMessageCount + 1]?.timestamp : lastDate, msg.timestamp)) && !msg.reply_to && !msg.interaction)
         obj = await buildMessage(msg, true, old);
     else {
         obj = await buildMessage(msg, false, old);
@@ -749,7 +786,7 @@ function renderUserlist(list) {
         getPfp(u.username).then((d) => icon.src = d);
         const name = document.createElement("p");
         name.classList.add("userListName");
-        name.textContent = u.username;
+        name.textContent = getDisplayName(u.username);
         div.append(icon, name);
         added.push(u.username);
         userListDiv.append(div);
@@ -769,7 +806,7 @@ function renderUserlist(list) {
         getPfp(u.username).then((d) => icon.src = d);
         const name = document.createElement("p");
         name.classList.add("userListName");
-        name.textContent = u.username;
+        name.textContent = getDisplayName(u.username);
         div.append(icon, name);
         added.push(u.username);
         userListDiv.append(div);
@@ -863,7 +900,7 @@ async function deleteMessage(data) {
                 userDiv.classList.add("userDiv");
                 username.classList.add("username");
                 userPfp.classList.add("userPfp");
-                username.textContent = msg.data.user;
+                username.textContent = getDisplayName(msg.data.user);
                 userPfp.src = await getPfp(msg.data.user);
                 userPfp.onclick = () => previewProfile(msg.data.user);
                 userDiv.append(userPfp, username, time);
@@ -946,7 +983,7 @@ function initFuncs() {
             console.warn("Server returned invalid data for message, ignored.");
             return;
         }
-        const cmd = data.cmd ?? data.type;
+        const cmd = data?.cmd ?? data?.type;
 
         if (JSON.stringify(data) === "{}") tempData = {}; // why..
 
@@ -1006,6 +1043,10 @@ function initFuncs() {
                     tempData = { user: "Deleted message...", content: "", timestamp: 0, id: "" };
                     return;
                 }
+                if (data?.val === "Unknown command: message_get") {
+                    tempData = {};
+                    return;
+                }
                 notif(data.val, `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-triangle-alert-icon lucide-triangle-alert"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`);
                 console.error(data.val);
                 break;
@@ -1051,6 +1092,33 @@ function initFuncs() {
                     if (!user?.color || user.color === "white" || user.color.startsWith("#fff") || user.color === "rgb(255, 255, 255)") continue;
                     userColors[name] = user.color;
                 }
+                break;
+
+            case "roles_list":
+                roles = data.roles;
+                break;
+
+            case "nickname_update":
+                const u = userList.find(r => r.username === data.username);
+                u.nickname = data.nickname;
+                const l = document.querySelectorAll(`.user-${data.username}`);
+                for (const e of l) e.textContent = data.nickname;
+                break;
+
+            case "nickname_remove":{
+                const u = userList.find(r => r.username === data.username);
+                u.nickname = null;
+                const l = document.querySelectorAll(`.user-${data.username}`);
+                for (const e of l) e.textContent = data.username;
+                break;
+            }
+
+            case "slash_add":
+                slashCommands = [ ...slashCommands, ...data.commands ];
+                break;
+
+            case "slash_list":
+                slashCommands = [ ...slashCommands, ...data.commands ];
                 break;
 
             case "typing":
@@ -1395,6 +1463,7 @@ async function initUI() {
         }
     })
 
+    ws.send('{"cmd":"roles_list"}');
     ws.send('{"cmd":"channels_get"}');
     while (!channels) {
         await new Promise((r) => setTimeout(r, 50));
@@ -1408,6 +1477,7 @@ async function initUI() {
     mainDiv.style.display = "block";
     const lT = document.querySelector("#connectionText");
     if (lT) lT.remove();
+
 
     window.addEventListener("keydown", (e) => {
         if (e.key == "k" && (e.metaKey || e.ctrlKey)) {
@@ -1500,10 +1570,15 @@ async function initUI() {
         }
     }
 
-    async function openChannel(name, id, perms) {
+    async function openChannel(name, id, perms, server) {
         const vc = channelSidebar.querySelector("#voice-" + id);
         if (vc) {
             openVoice(id);
+            return;
+        }
+        const fo = channelSidebar.querySelector("#forum-" + id);
+        if (fo) {
+            fo.click();
             return;
         }
         currentChannelType = "text";
@@ -1519,7 +1594,7 @@ async function initUI() {
         messageStore = {};
         document.querySelector("#msgContainer").hidden = false;
         if (id) {
-            const channelDiv = channelSidebar.querySelector("#channel-" + id);
+            const channelDiv = channelSidebar.querySelector("#text-" + id);
             if (channelDiv) {
                 channelDiv.textContent = name;
                 const l = document.querySelectorAll(".currentChannel");
@@ -1746,6 +1821,196 @@ async function initUI() {
         }
     }
 
+    async function openForum(name, threads) {
+        currentChannelType = "forum";
+        currentChannel = name;
+        const channelDiv = channelSidebar.querySelector("#forum-" + name);
+        if (channelDiv) {
+            const l = document.querySelectorAll(".currentChannel");
+            for (const e of l) {
+                e.classList.remove("currentChannel");
+            };
+            channelDiv.classList.add("currentChannel");
+        }
+        if (!ratelimit.active) {
+            chatInput.disabled = "";
+            document.querySelector("#msgContainer").hidden = true;
+        }
+        title.textContent = `${name} — ${serverInfo.name} — Originchats`;
+        messageArea.innerHTML = "";
+    }
+
+    function updateTopData() {
+        requestAnimationFrame(() => {
+            let li = document.querySelector(".commandList");
+            if (!li) {
+                li = document.createElement("div");
+                li.classList.add("commandList");
+                document.querySelector("#top").append(li);
+            }
+
+            li.innerHTML = "";
+
+            const t = chatInput.value;
+            if (!(t && t.startsWith("/"))) return;
+
+            const query = t.slice(1);
+
+            const results = slashCommands.filter(c =>
+                c?.name?.includes(query) &&
+                (c?.whitelistRoles ? checkPermissionCustom(c.whitelistRoles) : true)
+            );
+
+            for (const c of results) {
+                const d = document.createElement("div");
+                d.classList.add("commandOptionContainer");
+
+                const n = document.createElement("p");
+                n.classList.add("commandOptionName");
+                n.textContent = c.name;
+
+                const desc = document.createElement("p");
+                desc.classList.add("commandOptionDescription");
+                desc.textContent = c.description;
+
+                d.append(n, desc);
+
+                d.onclick = () => {
+
+                    chatInput.value = " ";
+                    chatInputUpdate();
+                    li.innerHTML = "";
+
+                    const cd = document.querySelector("#inputDiv");
+
+                    const options = document.createElement("div");
+                    options.classList.add("commandOptionsWrapper");
+                    cd.append(options);
+
+                    const inputs = [];
+                    let requiredInputsLeft = 0;
+
+                    for (const o of c.options || []) {
+                        const container = document.createElement("div");
+                        container.classList.add("commandInputContainer");
+
+                        const label = document.createElement("p");
+                        label.classList.add("commandInputTitle");
+                        label.textContent = o.name;
+
+                        let removedInputLeft = false;
+
+                        if (o.required) requiredInputsLeft++;
+
+                        let input;
+
+                        if (o.type === "enum") {
+                            input = document.createElement("select");
+                            input.classList.add("commandInputValue");
+
+                            const placeholder = document.createElement("option");
+                            placeholder.value = "";
+                            placeholder.textContent = o.description || "Select an option";
+                            placeholder.disabled = true;
+                            placeholder.selected = true;
+                            input.append(placeholder);
+
+                            for (const choice of o.choices || []) {
+                                const opt = document.createElement("option");
+                                opt.value = choice.value ?? choice;
+                                opt.textContent = choice.name ?? choice;
+                                input.append(opt);
+                            }
+
+                        } else {
+                            input = document.createElement("input");
+
+                            if (o.type === "int" || o.type === "float") input.type = "number";
+                            if (o.type === "bool") input.type = "checkbox";
+
+                            input.placeholder = o.description || "";
+                            input.classList.add("commandInputValue");
+                        }
+
+                        input.addEventListener("input", () => {
+                            const hasValue = o.type === "bool"
+                                ? input.checked
+                                : input.value?.toString().trim().length > 0;
+
+                            if (hasValue && !removedInputLeft && o.required) {
+                                removedInputLeft = true;
+                                requiredInputsLeft--;
+                            }
+
+                            if (!hasValue && removedInputLeft && o.required) {
+                                removedInputLeft = false;
+                                requiredInputsLeft++;
+                            }
+                        });
+
+                        input.addEventListener("keydown", (e) => {
+                            if (e.key === "Escape") {
+                                chatInput.value = "";
+                                options.remove();
+                            }
+
+                            if (o.type === "int" && e.key === ".") {
+                                e.preventDefault();
+                            }
+
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+
+                                if (requiredInputsLeft === 0) {
+                                    submit();
+                                } else {
+                                    notif(`Not all inputs are filled, required inputs left: ${requiredInputsLeft}`,
+                                        `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-triangle-alert-icon lucide-triangle-alert"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`);
+                                }
+                            }
+                        });
+
+                        container.append(label, input);
+                        options.append(container);
+
+                        inputs.push({ name: o.name, el: input, type: o.type });
+                    }
+
+                    const submit = () => {
+                        const args = {};
+
+                        for (const i of inputs) {
+                            if (i.type === "bool") {
+                                args[i.name] = i.el.checked;
+                            } else if (i.type === "int") {
+                                args[i.name] = parseInt(i.el.value, 10);
+                            } else if (i.type === "float") {
+                                args[i.name] = parseFloat(i.el.value);
+                            } else {
+                                args[i.name] = i.el.value;
+                            }
+                        }
+
+                        ws.send(JSON.stringify({
+                            cmd: "slash_call",
+                            channel: currentChannel,
+                            command: c.name,
+                            args
+                        }));
+
+                        options.remove();
+                        chatInput.value = "";
+                    };
+
+                    // 🚀 auto-submit if no args
+                    if (!c.options?.length) submit();
+                };
+
+                li.append(d);
+            }
+        });
+    }
+
     if (!channelSidebar) return;
 
     for (const channel of channels) {
@@ -1753,19 +2018,26 @@ async function initUI() {
         if (channel.type === "separator") {
             div.classList.add("channelSeparator");
             div.style.margin = `${channel.size / 15}em auto`
-        } else if (channel.type === "text") {
+        } else if (channel.type === "text" || channel.type === "chat") {
             div.classList.add("channel");
             if (channel.display_name)
-                div.textContent = channel.display_name;
+                div.textContent = "#" + channel.display_name;
             else
                 div.textContent = "#" + channel.name;
-            div.onclick = () => openChannel(channel.display_name ?? "#" + channel.name, channel.name, channel.permissions);
+            div.onclick = () => openChannel("#" + (channel.display_name ?? channel.name), channel.name, channel.permissions);
         } else if (channel.type === "voice") {
             div.classList.add("channel");
             div.textContent = channel.name;
             div.onclick = () => openVoice(channel.name);
+        } else if (channel.type === "forum") {
+            div.classList.add("channel");
+            if (channel.display_name)
+                div.textContent = "#" + channel.display_name;
+            else
+                div.textContent = "#" + channel.name;
+            div.onclick = () => openForum(channel.name, channel.threads);
         }
-        if (channel.name && channel.type === "text") div.id = "channel-" + channel.name; else if (channel.type === "voice") div.id = "voice-" + channel.name;
+        if (channel.name && channel.type) div.id = `${channel.type}-${channel.name}`;
         channelSidebar.append(div);
     }
 
@@ -1776,6 +2048,7 @@ async function initUI() {
 
     chatInput.addEventListener("keydown", (e) => {
         if (!currentChannel) return;
+        updateTopData();
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             if (messageHandling?.id) {

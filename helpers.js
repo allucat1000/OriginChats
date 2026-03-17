@@ -1,5 +1,5 @@
-export { escapeHTML, parseMarkdown, checkPermissions, getImage, getPfp, replaceShortcodes, notif };
-import { userData, currentPermissions, shortCodes, messageArea, channels, userList } from "./main.js";
+export { escapeHTML, parseMarkdown, checkPermissions, getImage, getPfp, replaceShortcodes, notif, checkPermissionCustom };
+import { userData, currentPermissions, shortCodes, messageArea, channels, userList, roles } from "./main.js";
 
 function escapeHTML(str) {
     const div = document.createElement('div');
@@ -32,6 +32,13 @@ function parseMarkdown(text) {
     let codeBuffer = [];
 
     for (let unsafeText of lines) {
+
+        unsafeText = unsafeText.replace(/@&([\w-]+)/g, (m, role) => {
+            if (roles[role])
+                return `%%ROLE%%${role}%%`;
+            return m;
+        });
+
         let line = escapeHTML(unsafeText);
 
         const codeBlockMatch = line.match(/^```(\w*)$/);
@@ -94,6 +101,18 @@ function parseMarkdown(text) {
             
         });
 
+        line = line.replace(/originChats:\/\/([\w.-]+)\/([\w-]+)/g, (m, server, channel) => {
+            const vC = channels.find(c => c?.name === channel);
+            if (vC)
+                return `<span class="mention" onclick="openChannel('#${channel}', '${channel}', {}, '${server}')">#${channel}</span>`;
+            
+            return m;
+        });
+
+        line = line.replace(/%%ROLE%%([\w-]+)%%/g,
+            `<span class="mention role-$1">@$1</span>`
+        );
+
         returned.push(line);
     }
 
@@ -126,6 +145,13 @@ function parseMarkdown(text) {
 function checkPermissions(type) {
     for (const role of userData.roles) {
         if (currentPermissions?.[type]?.includes(role)) return true;
+    }
+    return false;
+}
+
+function checkPermissionCustom(perms) {
+    for (const role of userData.roles) {
+        if (perms?.includes(role)) return true;
     }
     return false;
 }

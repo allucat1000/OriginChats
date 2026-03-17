@@ -111,6 +111,8 @@ body {
     display: flex;
     flex-direction: row;
     gap: 0.5em;
+
+    position: relative;
 }
 
 #chatInput {
@@ -957,4 +959,62 @@ pre {
 .smallText {
     font-weight: normal;
     color: gray;
+}
+
+.commandOptionContainer {
+    padding: 0.5em;
+    margin: 0;
+    border-radius: 5px;
+    background-color: rgba(55, 55, 55, 0.5);
+    border: rgba(120, 120, 120, 0.5) solid 1px;
+}
+
+.commandOptionDescription {
+    opacity: 0.6;
+}
+
+.commandOptionName {
+    margin-bottom: 0.25em;
+}
+
+.commandList {
+    display: flex;
+    flex-direction: column;
+    margin: 0.5em;
+    gap: 0.5em;
+    max-height: 15em;
+    overflow: scroll;
+    margin-bottom: 0;
+    border-radius: 5px;
+}
+
+.commandOptionsWrapper {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+}
+
+.commandInputContainer {
+    display: flex;
+    flex-direction: row;
+    padding: 0.5em 0;
+    align-items: center;
+}
+
+.commandInputTitle {
+    padding: 0.5em;
+}
+
+.commandInputValue {
+    border-radius: 5px;
+    padding: 0.5em;
+    background: rgba(55, 55, 55, 0.5);
+    border: rgba(120, 120, 120, 0.5) solid 1px;
+    width: 15em;
+    color: white;
 }
