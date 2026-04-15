@@ -445,7 +445,10 @@ async function buildMessage(msg, group, old = false) {
     deleteMessage.classList.add("messageControlMenuButton");
     deleteMessage.classList.add("messageDeleteButton");
     if (msg.user !== userData.username) deleteMessage.style.display = checkPermissions("delete") ? "block" : "none";
-    deleteMessage.onclick = () => ws.send(`{"cmd":"message_delete", "channel":"${currentChannel}", "id":"${msg.id}"}`);
+    deleteMessage.onclick = () => {
+        const del = confirm("Do you want to delete this message?");
+        if (del) ws.send(`{"cmd":"message_delete", "channel":"${currentChannel}", "id":"${msg.id}"}`);
+    }
     const replyMessage = document.createElement("button");
     replyMessage.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-reply-icon lucide-reply"><path d="M20 18v-2a4 4 0 0 0-4-4H4"/><path d="m9 17-5-5 5-5"/></svg>`;
     replyMessage.classList.add("messageControlMenuButton");
@@ -671,6 +674,22 @@ async function buildMessage(msg, group, old = false) {
         }
         if (embedEl && embedEl.classList.contains("embedBox") && embedEl.children.length === 0)
             embedEl.remove();
+        })();
+        embedPromises.push(p);
+    }
+
+    const attachments = msg.attachments || [];
+    for (const attachment of attachments) {
+        const placeholder = document.createElement("div");
+        placeholder.classList.add("embedPlaceholder");
+        embeds.append(placeholder);
+
+        const p = (async () => {
+            const img = await getImage(attachment.url);
+            const el = document.createElement("img");
+            el.src = img;
+            el.classList.add("embedImage")
+            placeholder.replaceWith(el);
         })();
         embedPromises.push(p);
     }
@@ -1560,29 +1579,29 @@ async function initUI() {
     async function uploadAttachment(file) {
         const u = config[3]?.Media?.[0]?.state;
         const m = config[3]?.Media?.[1]?.state;
-        if (!u) {
-            notif("You do not have a media CDN configured! Configure one in Settings (ctrl/cmd + ,) > Media > CDN server", `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-triangle-alert-icon lucide-triangle-alert"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`);
-            return;
-        }
 
         notif("Uploading attachment...", `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-upload-icon lucide-upload"><path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>`);
 
         try {
             const arr = await file.arrayBuffer();
-            const r = await fetch(u, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/octet-stream"
-                },
-                body: arr
-            });
-            if (r.ok) {
-                const d = await r.json();
-                if (!d.ok) throw new Error("CDN server error");
-                const u = d.url || d.path || "";
-                return u.startsWith("http") ? u : m + u;
+            if (u) {
+                const r = await fetch(u, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/octet-stream"
+                    },
+                    body: arr
+                });
+                if (r.ok) {
+                    const d = await r.json();
+                    if (!d.ok) throw new Error("CDN server error");
+                    const u = d.url || d.path || "";
+                    return u.startsWith("http") ? u : m + u;
+                } else {
+                    throw new Error("CDN server returned non-ok response");
+                }
             } else {
-                throw new Error("CDN server returned non-ok response");
+                
             }
         } catch (e) {
             notif("Failed to upload attachment! " + e.message, `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-triangle-alert-icon lucide-triangle-alert"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`);
